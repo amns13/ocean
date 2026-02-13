@@ -1,0 +1,2 @@
+# ocean
+Self hosted notion
