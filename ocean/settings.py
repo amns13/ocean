@@ -39,7 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # My apps
-    "ocean.apps.user"
+    "ocean.apps.user",
+    "ocean.apps.page"
 ]
 
 AUTH_USER_MODEL = "user.User"
