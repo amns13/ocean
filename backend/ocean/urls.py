@@ -24,5 +24,5 @@ urlpatterns = [
     path("api/auth/login/", TokenObtainPairView.as_view(), name="login"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api-auth/", include("rest_framework.urls")),
-    path("api/pages/", include(("ocean.apps.page.urls", "page"), namespace="page"))
+    path("api/pages/", include(("ocean.apps.page.urls", "page"), namespace="page")),
 ]
