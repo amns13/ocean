@@ -25,8 +25,19 @@ SECRET_KEY = "django-insecure-*jccb7s%o*=@70yjq7qkwip0b^^fdy(*wcvnaqd4-22mce75a(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# CORS_ORIGIN_ALLOW_ALL = True
 
+ALLOWED_HOSTS = [
+    "http://localhost:5173",
+    "http://localhost:5173/",
+    "localhost:5173",
+    "localhost"
+]
+
+CORS_ORIGIN_WHITELIST = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 # Application definition
 
@@ -39,6 +50,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Third party apps
     "rest_framework",
+    "corsheaders",
+
     # My apps
     "ocean.apps.user",
     "ocean.apps.page",
@@ -49,6 +62,7 @@ AUTH_USER_MODEL = "user.User"
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    'corsheaders.middleware.CorsMiddleware',
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
