@@ -1,30 +1,26 @@
 <template>
   <nav class="navbar">
     <div class="navbar-content">
-      <RouterLink to="/pages" class="navbar-brand">
-        🌊 Ocean
-      </RouterLink>
+      <RouterLink to="/pages" class="navbar-brand"> 🌊 Ocean </RouterLink>
 
       <div class="navbar-right">
         <span class="username">{{ authStore.user?.username }}</span>
-        <button @click="handleLogout" class="btn-logout">
-          Logout
-        </button>
+        <button @click="handleLogout" class="btn-logout">Logout</button>
       </div>
     </div>
   </nav>
 </template>
 
 <script setup>
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { useRouter } from "vue-router";
+import { useAuthStore } from "../stores/auth";
 
-const router = useRouter()
-const authStore = useAuthStore()
+const router = useRouter();
+const authStore = useAuthStore();
 
 function handleLogout() {
-  authStore.logout()
-  router.push({ name: 'Login' })
+  authStore.logout();
+  router.push({ name: "Login" });
 }
 </script>
 
@@ -86,4 +82,3 @@ function handleLogout() {
   color: white;
 }
 </style>
-

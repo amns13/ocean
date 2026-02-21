@@ -1,66 +1,66 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { usePageStore } from '../stores/pages'
+import { ref, onMounted } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import { usePageStore } from "../stores/pages";
 
-const router = useRouter()
-const route = useRoute()
-const pageStore = usePageStore()
+const router = useRouter();
+const route = useRoute();
+const pageStore = usePageStore();
 
-const editing = ref(false)
-const saving = ref(false)
-const updateError = ref(null)
-const editForm = ref({ title: '', description: '', completed: false })
+const editing = ref(false);
+const saving = ref(false);
+const updateError = ref(null);
+const editForm = ref({ title: "", description: "", completed: false });
 
 onMounted(() => {
-  pageStore.fetchPage(route.params.id)
-})
+  pageStore.fetchPage(route.params.id);
+});
 
 function formatDate(dateStr) {
-  return new Date(dateStr).toLocaleString()
+  return new Date(dateStr).toLocaleString();
 }
 
 function startEditing() {
-  const page = pageStore.currentPage
+  const page = pageStore.currentPage;
   editForm.value = {
     title: page.title,
-    description: page.description || '',
+    description: page.description || "",
     completed: page.completed,
-  }
-  editing.value = true
+  };
+  editing.value = true;
 }
 
 function cancelEditing() {
-  editing.value = false
-  updateError.value = null
+  editing.value = false;
+  updateError.value = null;
 }
 
 async function handleToggle() {
   await pageStore.updatePage(pageStore.currentPage.id, {
     completed: !pageStore.currentPage.completed,
-  })
+  });
 }
 
 async function handleUpdate() {
-  saving.value = true
-  updateError.value = null
+  saving.value = true;
+  updateError.value = null;
   try {
-    await pageStore.updatePage(pageStore.currentPage.id, editForm.value)
-    editing.value = false
+    await pageStore.updatePage(pageStore.currentPage.id, editForm.value);
+    editing.value = false;
   } catch (err) {
-    updateError.value = 'Failed to save changes. Please try again.'
+    updateError.value = "Failed to save changes. Please try again.";
   } finally {
-    saving.value = false
+    saving.value = false;
   }
 }
 
 async function handleDelete() {
-  if (!confirm('Are you sure you want to delete this page?')) return
+  if (!confirm("Are you sure you want to delete this page?")) return;
   try {
-    await pageStore.deletePage(pageStore.currentPage.id)
-    router.push({ name: 'PageList' })
+    await pageStore.deletePage(pageStore.currentPage.id);
+    router.push({ name: "PageList" });
   } catch (err) {
-    console.error('Failed to delete page', err)
+    console.error("Failed to delete page", err);
   }
 }
 </script>
@@ -76,11 +76,12 @@ async function handleDelete() {
     <div v-if="pageStore.loading" class="loading">Loading...</div>
 
     <!-- Error -->
-    <div v-else-if="pageStore.error" class="error-message">{{ pageStore.error }}</div>
+    <div v-else-if="pageStore.error" class="error-message">
+      {{ pageStore.error }}
+    </div>
 
     <!-- Page Detail -->
     <div v-else-if="pageStore.currentPage" class="detail-card">
-
       <!-- View Mode -->
       <div v-if="!editing">
         <div class="detail-header">
@@ -95,17 +96,22 @@ async function handleDelete() {
               {{ pageStore.currentPage.title }}
             </h2>
           </div>
-          <span class="status-badge" :class="pageStore.currentPage.completed ? 'done' : 'pending'">
-            {{ pageStore.currentPage.completed ? 'Completed' : 'Pending' }}
+          <span
+            class="status-badge"
+            :class="pageStore.currentPage.completed ? 'done' : 'pending'"
+          >
+            {{ pageStore.currentPage.completed ? "Completed" : "Pending" }}
           </span>
         </div>
 
         <p class="description">
-          {{ pageStore.currentPage.description || 'No description provided.' }}
+          {{ pageStore.currentPage.description || "No description provided." }}
         </p>
 
         <div class="meta">
-          <span>Created: {{ formatDate(pageStore.currentPage.created_at) }}</span>
+          <span
+            >Created: {{ formatDate(pageStore.currentPage.created_at) }}</span
+          >
           <span v-if="pageStore.currentPage.updated_at">
             Updated: {{ formatDate(pageStore.currentPage.updated_at) }}
           </span>
@@ -123,12 +129,7 @@ async function handleDelete() {
         <form @submit.prevent="handleUpdate">
           <div class="form-group">
             <label for="title">Title</label>
-            <input
-              id="title"
-              v-model="editForm.title"
-              type="text"
-              required
-            />
+            <input id="title" v-model="editForm.title" type="text" required />
           </div>
 
           <div class="form-group">
@@ -155,7 +156,7 @@ async function handleDelete() {
 
           <div class="edit-actions">
             <button type="submit" :disabled="saving" class="btn-primary">
-              {{ saving ? 'Saving...' : 'Save changes' }}
+              {{ saving ? "Saving..." : "Save changes" }}
             </button>
             <button type="button" @click="cancelEditing" class="btn-cancel">
               Cancel
@@ -163,7 +164,6 @@ async function handleDelete() {
           </div>
         </form>
       </div>
-
     </div>
   </div>
 </template>
@@ -197,7 +197,7 @@ async function handleDelete() {
 .detail-card {
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   padding: 2rem;
 }
 
@@ -255,7 +255,7 @@ h2.completed {
   color: #555;
   line-height: 1.6;
   margin-bottom: 1.5rem;
-  overflow-wrap: anywhere
+  overflow-wrap: anywhere;
 }
 
 .meta {
@@ -369,4 +369,3 @@ textarea:focus {
   color: white;
 }
 </style>
-

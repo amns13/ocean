@@ -8,7 +8,7 @@
 </template>
 
 <script setup>
-import NavBar from './NavBar.vue'
+import NavBar from "./NavBar.vue";
 </script>
 
 <style scoped>
@@ -18,4 +18,3 @@ import NavBar from './NavBar.vue'
   padding: 2rem 1.5rem;
 }
 </style>
-

@@ -44,7 +44,7 @@
         <p v-if="error" class="error-message">{{ error }}</p>
 
         <button type="submit" :disabled="loading" class="btn-primary">
-          {{ loading ? 'Creating account...' : 'Create account' }}
+          {{ loading ? "Creating account..." : "Create account" }}
         </button>
       </form>
 
@@ -57,29 +57,34 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useAuthStore } from "../stores/auth";
 
-const router = useRouter()
-const authStore = useAuthStore()
+const router = useRouter();
+const authStore = useAuthStore();
 
-const form = ref({ username: '', email: '', password: '' })
-const error = ref(null)
-const loading = ref(false)
+const form = ref({ username: "", email: "", password: "" });
+const error = ref(null);
+const loading = ref(false);
 
 async function handleRegister() {
-  error.value = null
-  loading.value = true
+  error.value = null;
+  loading.value = true;
   try {
-    await authStore.register(form.value.username, form.value.email, form.value.password)
+    await authStore.register(
+      form.value.username,
+      form.value.email,
+      form.value.password,
+    );
     // After registering, log them in automatically
-    await authStore.login(form.value.username, form.value.password)
-    router.push({ name: 'TodoList' })
+    await authStore.login(form.value.username, form.value.password);
+    router.push({ name: "TodoList" });
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Registration failed. Please try again.'
+    error.value =
+      err.response?.data?.detail || "Registration failed. Please try again.";
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 </script>
@@ -98,7 +103,7 @@ async function handleRegister() {
   background: white;
   padding: 2rem;
   border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
   width: 100%;
   max-width: 400px;
 }

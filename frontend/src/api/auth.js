@@ -1,12 +1,12 @@
 // src/api/auth.js
-import apiClient from './axios'
+import apiClient from "./axios";
 
 export const authApi = {
   register(userData) {
-    return apiClient.post('/auth/register/', userData)
+    return apiClient.post("/auth/register/", userData);
   },
 
   login(creds) {
-    return apiClient.post('/auth/login/', creds)
+    return apiClient.post("/auth/login/", creds);
   },
-}
+};

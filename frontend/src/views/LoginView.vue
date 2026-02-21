@@ -1,25 +1,26 @@
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useAuthStore } from "../stores/auth";
 
-const router = useRouter()
-const authStore = useAuthStore()
+const router = useRouter();
+const authStore = useAuthStore();
 
-const form = ref({ username: '', password: '' })
-const error = ref(null)
-const loading = ref(false)
+const form = ref({ username: "", password: "" });
+const error = ref(null);
+const loading = ref(false);
 
 async function handleLogin() {
-  error.value = null
-  loading.value = true
+  error.value = null;
+  loading.value = true;
   try {
-    await authStore.login(form.value.username, form.value.password)
-    router.push({ name: 'PageList' })
+    await authStore.login(form.value.username, form.value.password);
+    router.push({ name: "PageList" });
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Login failed. Please try again.'
+    error.value =
+      err.response?.data?.detail || "Login failed. Please try again.";
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 </script>
@@ -58,7 +59,7 @@ async function handleLogin() {
         <p v-if="error" class="error-message">{{ error }}</p>
 
         <button type="submit" :disabled="loading" class="btn-primary">
-          {{ loading ? 'Signing in...' : 'Sign in' }}
+          {{ loading ? "Signing in..." : "Sign in" }}
         </button>
       </form>
 
@@ -83,7 +84,7 @@ async function handleLogin() {
   background: white;
   padding: 2rem;
   border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
   width: 100%;
   max-width: 400px;
 }

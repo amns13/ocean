@@ -1,3 +1,3 @@
 // src/api/index.js
-export { authApi } from './auth'
-export { pagesApi } from './pages'
+export { authApi } from "./auth";
+export { pagesApi } from "./pages";

@@ -1,45 +1,45 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { usePageStore } from '../stores/pages'
+import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { usePageStore } from "../stores/pages";
 
-const router = useRouter()
-const pageStore = usePageStore()
+const router = useRouter();
+const pageStore = usePageStore();
 
-const newTitle = ref('')
-const creating = ref(false)
+const newTitle = ref("");
+const creating = ref(false);
 
 onMounted(() => {
-  pageStore.fetchPages()
-})
+  pageStore.fetchPages();
+});
 
 async function handleCreate() {
-  if (!newTitle.value.trim()) return
-  creating.value = true
+  if (!newTitle.value.trim()) return;
+  creating.value = true;
   try {
-    await pageStore.createPage({ title: newTitle.value.trim() })
-    newTitle.value = ''
+    await pageStore.createPage({ title: newTitle.value.trim() });
+    newTitle.value = "";
   } catch (err) {
-    console.error('Failed to create page', err)
+    console.error("Failed to create page", err);
   } finally {
-    creating.value = false
+    creating.value = false;
   }
 }
 
 async function handleToggle(page) {
   try {
-    await pageStore.updatePage(page.id, { completed: !page.completed })
+    await pageStore.updatePage(page.id, { completed: !page.completed });
   } catch (err) {
-    console.error('Failed to update page', err)
+    console.error("Failed to update page", err);
   }
 }
 
 async function handleDelete(id) {
-  if (!confirm('Are you sure you want to delete this page?')) return
+  if (!confirm("Are you sure you want to delete this page?")) return;
   try {
-    await pageStore.deletePage(id)
+    await pageStore.deletePage(id);
   } catch (err) {
-    console.error('Failed to delete page', err)
+    console.error("Failed to delete page", err);
   }
 }
 </script>
@@ -57,7 +57,7 @@ async function handleDelete(id) {
           required
         />
         <button type="submit" :disabled="creating" class="btn-primary">
-          {{ creating ? 'Adding...' : 'Add Page' }}
+          {{ creating ? "Adding..." : "Add Page" }}
         </button>
       </form>
     </div>
@@ -91,7 +91,12 @@ async function handleDelete(id) {
         <span class="page-title">{{ page.title }}</span>
 
         <div class="page-actions">
-          <button @click="router.push({ name: 'PageDetail', params: { id: page.id } })" class="btn-view">
+          <button
+            @click="
+              router.push({ name: 'PageDetail', params: { id: page.id } })
+            "
+            class="btn-view"
+          >
             View
           </button>
           <button @click="handleDelete(page.id)" class="btn-delete">
@@ -103,13 +108,12 @@ async function handleDelete(id) {
   </div>
 </template>
 
-
 <style scoped>
 .create-card {
   background: white;
   padding: 1.5rem;
   border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   margin-bottom: 1.5rem;
 }
 
@@ -177,7 +181,7 @@ h2 {
   padding: 3rem;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
 .page-list {
@@ -191,7 +195,7 @@ h2 {
   background: white;
   padding: 1rem 1.25rem;
   border-radius: 10px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -257,4 +261,3 @@ h2 {
   color: white;
 }
 </style>
-
