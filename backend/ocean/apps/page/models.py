@@ -1,3 +1,4 @@
+from django.utils.text import slugify
 from ocean.apps.page.managers import PageManager
 from django.utils import timezone
 from uuid import uuid7
@@ -24,6 +25,18 @@ class Page(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+    def set_slug(self):
+        self.slug = slugify(self.title)[:127]
+
+    def save(self, *args, **kwargs):
+        if update_fields := kwargs.get("update_fields"):
+            if "title" in update_fields:
+                self.set_slug()
+                update_fields.append("slug")
+        else:
+            self.set_slug()
+        return super().save(*args, **kwargs)
 
     def delete(self):
         self.deleted_at = timezone.now()
