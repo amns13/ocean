@@ -10,7 +10,7 @@ User = get_user_model()
 class Page(models.Model):
     uid = models.UUIDField(default=uuid7)
     title = models.CharField(max_length=127, blank=False)
-    content = models.TextField(blank=True)
+    slug = models.SlugField(max_length=127, blank=True)
     is_read_only = models.BooleanField(default=False)
     extra = models.JSONField(default=dict, blank=True)
     creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_pages")
@@ -29,6 +29,13 @@ class Page(models.Model):
         self.deleted_at = timezone.now()
         # TODO: Only update specific columns
         self.save()
+
+
+class Block(models.Model):
+    uid = models.UUIDField(default=uuid7)
+    page = models.ForeignKey(Page, on_delete=models.CASCADE, related_name="blocks")
+    content = models.TextField()
+    next = models.OneToOneField("self", on_delete=models.SET_NULL, null=True, related_name="prev")
 
 
 class PageAction(models.Model):
