@@ -1,9 +1,11 @@
-from django.utils.text import slugify
-from ocean.apps.page.managers import PageManager
-from django.utils import timezone
 from uuid import uuid7
+
 from django.contrib.auth import get_user_model
 from django.db import models
+from django.utils import timezone
+from django.utils.text import slugify
+
+from ocean.apps.page.managers import PageManager
 
 User = get_user_model()
 

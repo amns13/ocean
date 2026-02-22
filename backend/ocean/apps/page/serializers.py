@@ -1,5 +1,6 @@
 from django.utils.text import slugify
 from rest_framework import serializers
+
 from ocean.apps.page.models import Page
 
 

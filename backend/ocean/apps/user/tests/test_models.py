@@ -1,4 +1,5 @@
 import pytest
+
 from ocean.apps.user.tests.factories import UserFactory
 
 

@@ -1,7 +1,8 @@
 from uuid import uuid7
+
 import factory
-from factory.django import DjangoModelFactory
 from django.utils.text import slugify
+from factory.django import DjangoModelFactory
 
 from ocean.apps.page.models import Page
 from ocean.apps.user.tests.factories import UserFactory

@@ -3,14 +3,16 @@ from django.utils import timezone
 from django.utils.text import slugify
 from faker import Faker
 
-from ocean.apps.page.tests.factories import PageFactory
 from ocean.apps.page.models import Page
+from ocean.apps.page.tests.factories import PageFactory
 
 faker = Faker()
+
 
 @pytest.fixture
 def page(db):
     return PageFactory()
+
 
 @pytest.mark.django_db
 class TestPageModel:
@@ -54,25 +56,26 @@ class TestPageModel:
 
     def test_set_slug_trunctates_slug(self, page):
         """Test that set slug truncates slug if its length is more than 127"""
-        value = "a"*128
+        value = "a" * 128
         assert len(value) == 128
         page.title = value
         page.set_slug()
-        assert page.slug == "a"*127
+        assert page.slug == "a" * 127
+
 
 class TestPageManager:
     def test_objects_returns_non_deleted_pages(self, page):
         """Test that objects returns only non-deleted pages"""
         PageFactory(deleted_at=timezone.now())
         pages = Page.objects.all()
-        assert pages.count() ==  1
+        assert pages.count() == 1
         assert list(pages.values_list("id", flat=True)) == [page.id]
 
     def test_all_objects_returns_deleted_and_non_deleted_pages(self, page):
         """Test that all_objects returns both deleted and non-deleted pages"""
         deleted_page = PageFactory(deleted_at=timezone.now())
         pages = Page.all_objects.all()
-        assert pages.count() ==  2
+        assert pages.count() == 2
         assert set(pages.values_list("id", flat=True)) == {page.id, deleted_page.id}
 
     def test_queryset_delete_sets_deleted_at(self, page):
@@ -80,6 +83,6 @@ class TestPageManager:
         PageFactory()
         Page.objects.all().delete()
         pages = Page.all_objects.all()
-        assert pages.count()==  2
+        assert pages.count() == 2
         for page in pages:
             assert page.deleted_at is not None

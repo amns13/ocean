@@ -1,6 +1,7 @@
-from ocean.apps.page.serializers import PageSerializer
 from rest_framework import permissions, viewsets
+
 from ocean.apps.page.models import Page
+from ocean.apps.page.serializers import PageSerializer
 
 
 class PageViewSet(viewsets.ModelViewSet):
