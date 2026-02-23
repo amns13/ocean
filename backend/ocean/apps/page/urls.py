@@ -5,8 +5,6 @@ from ocean.apps.page import views
 
 router = SimpleRouter()
 
-router.register(r"", views.PageViewSet)
+router.register(r"page", views.PageViewSet, "page")
 
-urlpatterns = [
-    path("", include(router.urls)),
-]
+urlpatterns = [path("", include(router.urls))]

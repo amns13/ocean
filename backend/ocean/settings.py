@@ -134,8 +134,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+DRF_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    "DATETIME_FORMAT": DRF_DATETIME_FORMAT,
 }

@@ -14,7 +14,11 @@ class PageViewSet(viewsets.ModelViewSet):
 
     queryset = Page.objects.all()
     serializer_class = PageSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # TODO: Also include pages on which user has access. Not for now
+        return self.queryset.filter(creator_id=self.request.user.id)
 
     def perform_create(self, serializer):
         serializer.save(creator=self.request.user)
