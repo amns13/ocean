@@ -86,3 +86,7 @@ class TestPageManager(TestCase):
         self.assertEqual(2, pages.count())
         for page in pages:
             self.assertIsNotNone(page.deleted_at)
+
+    def test_get_deleted_object_raises_error(self):
+        with self.assertRaises(Page.DoesNotExist):
+            Page.objects.get(id=self.deleted_page.id)

@@ -4,7 +4,7 @@ import factory
 from django.utils.text import slugify
 from factory.django import DjangoModelFactory
 
-from ocean.apps.page.models import Page
+from ocean.apps.page.models import Block, Page
 from ocean.apps.user.tests.factories import UserFactory
 
 
@@ -19,3 +19,12 @@ class PageFactory(DjangoModelFactory):
     extra = factory.LazyFunction(dict)
     creator = factory.SubFactory(UserFactory)
     deleted_at = None
+
+
+class BlockFactory(DjangoModelFactory):
+    class Meta:
+        model = Block
+
+    uid = factory.LazyFunction(uuid7)
+    page = factory.SubFactory(PageFactory)
+    content = factory.Faker("sentence", nb_words=5)
