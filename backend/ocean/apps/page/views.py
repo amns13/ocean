@@ -1,5 +1,5 @@
 from django.db import transaction
-from rest_framework import generics, mixins, permissions, viewsets
+from rest_framework import mixins, permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -38,16 +38,18 @@ class PageViewSet(viewsets.ModelViewSet):
 class BlockCreateUpdateDestroyViewSet(
     mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet
 ):
-    """
-    TODO: update the existing blocks next/previous
-    """
-
     permission_classes = [permissions.IsAuthenticated]
     lookup_field = "uid"
+    queryset = Block.objects.select_related("page")
 
     def get_serializer_class(self):
         if self.action == "create":
             return BlockCreateSerializer
+
+    def get_serilizer_context(self) -> dict:
+        context = super().get_serializer_context()
+        context.update({"action": self.action})
+        return context
 
     @transaction.atomic
     def perform_create(self, serializer):

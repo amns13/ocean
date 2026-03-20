@@ -1,4 +1,6 @@
-from django.http import Http404
+from typing import Any
+
+from django.db.models import QuerySet
 from rest_framework import serializers
 
 from ocean.apps.page.models import Block, Page
@@ -22,59 +24,53 @@ class BlockCreateSerializer(serializers.Serializer):
     page = serializers.UUIDField()
     content = serializers.CharField()
     next = serializers.UUIDField(required=False, allow_null=True)
-    previous = serializers.UUIDField(required=False, allow_null=True)
+    previous = serializers.UUIDField(read_only=True)
 
-    @staticmethod
-    def validate_page(page):
+    def validate_page(self, page) -> Page:
         try:
             return Page.objects.only("id", "uid").get(uid=page)
         except Page.DoesNotExist:
             raise serializers.ValidationError("Page not found.")
 
-    def validate(self, data):
-        next_uid = data.get("next")
-        previous_uid = data.get("previous")
+    @staticmethod
+    def _get_block_by_uid(page_id: int, uid: str, qs: QuerySet[Block] | None) -> Block:
+        if qs is None:
+            qs = Block.objects.all()
+        try:
+            return qs.get(page_id=page_id, uid=uid)
+        except Block.DoesNotExist:
+            raise serializers.ValidationError(f"Block not found: {uid}")
 
-        page = data["page"]
+    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
+        page: Page = data["page"]
 
-        if not (next_uid or previous_uid):
-            if page.blocks.exists():
-                raise serializers.ValidationError("Must link new block with existing blocks.")
-            return data
+        if (next_uid := data["next"]) is None:
+            next_block = None
+            prev_block = (
+                Block.objects.filter(page_id=page.id, next__isnull=True)
+                .only("id", "uid", "next_id", "previous_id")
+                .first()
+            )
+        else:
+            qs = Block.objects.select_related("previous").only(
+                "id",
+                "uid",
+                "next_id",
+                "previous_id",
+                "previous__id",
+                "previous__uid",
+                "previous__next_id",
+                "previous__previous_id",
+            )
+            next_block = self._get_block_by_uid(qs=qs, page_id=page.id, uid=next_uid)
+            prev_block = next_block.previous
 
-        if next_uid and previous_uid and next_uid == previous_uid:
-            raise serializers.ValidationError("Same block can't be both next and previous")
-
-        to_search = set()
-        if next_uid:
-            to_search.add(next_uid)
-        if previous_uid:
-            to_search.add(previous_uid)
-
-        linked_blocks = (
-            Block.objects.filter(uid__in=to_search, page_id=page.id)
-            .only("id", "uid", "next_id", "previous_id")
-            .in_bulk(field_name="uid")
-        )
-        if missing_blocks := to_search.difference(set(linked_blocks)):
-            raise serializers.ValidationError(f"Blocks not found: {missing_blocks}")
-
-        # For a new last node in the list, its previous must be the last node at the curent time.
-        if not next_uid and linked_blocks[previous_uid].next_id is not None:
-            raise serializers.ValidationError("New last block must be linked to the current last block")
-
-        # For a new first node in the list, its next must be the first node at the curent time.
-        if not previous_uid and linked_blocks[next_uid].previous_id is not None:
-            raise serializers.ValidationError("New first block must be linked to the current first block")
-
-        if next_uid:
-            data["next"] = linked_blocks[next_uid]
-        if previous_uid:
-            data["previous"] = linked_blocks[previous_uid]
+        data["next"] = next_block
+        data["previous"] = prev_block
 
         return data
 
-    def create(self, validated_data: dict):
+    def create(self, validated_data: dict) -> Block:
         prev_block = validated_data.pop("previous", None)
         next_block = validated_data.pop("next", None)
 
@@ -98,7 +94,7 @@ class BlockCreateSerializer(serializers.Serializer):
 
         return block
 
-    def to_representation(self, instance):
+    def to_representation(self, instance: Block) -> dict[str, Any]:
         """
         We only want to return page's uid. But, django internally returns the title due to __str__ implementation.
         Hence, we override this method to make sure that uid is returned and no extra queries are performed.

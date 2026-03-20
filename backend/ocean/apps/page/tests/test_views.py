@@ -8,7 +8,7 @@ from faker import Faker
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ocean.apps.page.models import Page, Block
+from ocean.apps.page.models import Block, Page
 from ocean.apps.page.tests.factories import BlockFactory, PageFactory
 from ocean.apps.user.tests.factories import UserFactory
 
@@ -125,7 +125,6 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
             "page": self.page_1.uid,
             "content": faker.sentence(),
             "next": self.block_1_c.uid,
-            "previous": self.block_1_b.uid,
         }
 
     def call_post_api(self, data, user=None):
@@ -168,11 +167,10 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
     def test_post_no_existing_block_in_page(self):
         self.payload["page"] = self.page_2.uid
         self.payload["next"] = None
-        self.payload["previous"] = None
 
         with self.assertNumQueries(5):
             # 1. Query for fetching page
-            # 2. Query for checking for existing blocks in page
+            # 2. Query for fetching current last block
             # 3. Savepoint
             # 4. Query for inserting new block
             # 5. Release savepoint
@@ -182,23 +180,29 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
         new_block = Block.objects.get(page=self.page_2)
         self.assertDictEqual(self.create_block_response(new_block), response.json())
 
-    def test_post_existing_blocks_in_page_next_prev_not_provided_raises_error(self):
+    def test_post_existing_blocks_in_page_next_prev_not_provided_page_added_to_end(self):
+        page = Page.objects.get(uid=self.payload["page"])
+        original_last_block = page.last_block
+
         self.payload["next"] = None
-        self.payload["previous"] = None
 
-        response = self.call_post_api(self.payload, self.user)
+        with self.assertNumQueries(6):
+            # 1. Query for fetching page
+            # 2. Query for fetching current last block
+            # 3. Savepoint
+            # 4. Query for inserting new block
+            # 5. Query to bulk-update adjacent blocks' pointers
+            # 6. Release savepoint
+            response = self.call_post_api(self.payload, self.user)
 
-        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
-        self.assertEqual({'non_field_errors': ['Must link new block with existing blocks.']}, response.json())
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code)
 
-    def test_post_fails_if_next_and_previous_are_same_block(self):
-        self.payload["next"] = self.block_1_b.uid
-        self.payload["previous"] = self.block_1_b.uid
-
-        response = self.call_post_api(self.payload, self.user)
-
-        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
-        self.assertEqual({"non_field_errors": ["Same block can't be both next and previous"]}, response.json())
+        page.refresh_from_db()
+        new_block = page.last_block
+        original_last_block.refresh_from_db()
+        self.assertIsNone(new_block.next)
+        self.assertEqual(original_last_block, new_block.previous)
+        self.assertEqual(new_block, original_last_block.next)
 
     def test_post_fails_if_linked_blocks_not_found(self):
         self.payload["next"] = uuid7()  # non-existent UID
@@ -207,26 +211,6 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
 
         self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
         self.assertIn("non_field_errors", response.json())
-
-    def test_post_fails_if_new_last_block_not_linked_to_current_last(self):
-        # block_1_b is not the last block; block_1_c is
-        self.payload["previous"] = self.block_1_b.uid
-        self.payload["next"] = None
-
-        response = self.call_post_api(self.payload, self.user)
-
-        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
-        self.assertEqual({"non_field_errors": ["New last block must be linked to the current last block"]}, response.json())
-
-    def test_post_fails_if_new_first_block_not_linked_to_current_first(self):
-        # block_1_b is not the first block; block_1_a is
-        self.payload["next"] = self.block_1_b.uid
-        self.payload["previous"] = None
-
-        response = self.call_post_api(self.payload, self.user)
-
-        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
-        self.assertEqual({"non_field_errors": ["New first block must be linked to the current first block"]}, response.json())
 
     def test_post_creates_block_in_middle(self):
         # Default payload inserts between block_1_b and block_1_c
@@ -248,31 +232,9 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
         self.assertEqual(self.block_1_b.next, new_block)
         self.assertEqual(self.block_1_c.previous, new_block)
 
-    def test_post_creates_block_as_new_last(self):
-        # block_1_c is the last block (next=None)
-        self.payload["previous"] = self.block_1_c.uid
-        self.payload["next"] = None
-
-        with self.assertNumQueries(6):
-            # 1. Query for fetching page
-            # 2. Query for fetching linked blocks
-            # 3. Savepoint
-            # 4. Query for inserting new block
-            # 5. Query to bulk-update adjacent block's pointer
-            # 6. Release savepoint
-            response = self.call_post_api(self.payload, self.user)
-
-        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.json())
-        new_block = Block.objects.get(page=self.page_1, content=self.payload["content"])
-        self.assertDictEqual(self.create_block_response(new_block), response.json())
-
-        self.block_1_c.refresh_from_db()
-        self.assertEqual(self.block_1_c.next, new_block)
-
     def test_post_creates_block_as_new_first(self):
         # block_1_a is the first block (previous=None)
         self.payload["next"] = self.block_1_a.uid
-        self.payload["previous"] = None
 
         with self.assertNumQueries(6):
             # 1. Query for fetching page
