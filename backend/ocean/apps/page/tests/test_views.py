@@ -24,15 +24,13 @@ class TestPageViewSet(APITestCase):
         cls.maxDiff = None
         cls.user_1, cls.user_2 = UserFactory.create_batch(2)
         cls.page_1, cls.page_2 = PageFactory.create_batch(2, creator=Iterator([cls.user_1, cls.user_2]))
-        cls.block_1_a = BlockFactory(page=cls.page_1)
-        cls.block_1_b = BlockFactory(page=cls.page_1, previous=cls.block_1_a)
-        cls.block_1_a.next = cls.block_1_b
-        cls.block_1_a.save()
-        cls.block_1_a.refresh_from_db()
-        cls.block_1_c = BlockFactory(page=cls.page_1, previous=cls.block_1_b)
-        cls.block_1_b.next = cls.block_1_c
-        cls.block_1_b.save()
-        cls.block_1_b.refresh_from_db()
+        # Create blocks in reverse order so that we do not have to update next later
+        cls.block_1_c = BlockFactory(page=cls.page_1)
+        cls.block_1_b = BlockFactory(page=cls.page_1, next=cls.block_1_c)
+        cls.block_1_a = BlockFactory(page=cls.page_1, next=cls.block_1_b)
+        cls.page_1.first_block = cls.block_1_a
+        cls.page_1.save()
+        cls.page_1.refresh_from_db()
 
     @staticmethod
     def get_blocks_url(uid) -> str:
@@ -101,7 +99,23 @@ class TestPageViewSet(APITestCase):
         self.assertEqual([], response.json())
 
 
-class TestBlockCreateUpdateDestroyViewSet(APITestCase):
+class TestBlockCreateSerializer(APITestCase):
+    """
+    Tests for the new ModelSerializer-based BlockCreateSerializer.
+
+    - Test that post fails for unauthenticated request
+    - Test that post fails when page field is missing
+    - Test that post fails when content field is missing
+    - Test that post fails when page uid does not exist
+    - Test that post fails when next uid does not exist
+    - Test that post fails when next block belongs to a different page
+    - Test that creating the first block in a page sets page.first_block
+    - Test that inserting before the current first block updates page.first_block
+    - Test that inserting in the middle rewires neighbours and leaves page.first_block unchanged
+    - Test that appending to the end leaves page.first_block unchanged
+    - Test that a failed bulk_update rolls back the entire block creation
+    """
+
     list_url = reverse("page:block-list")
 
     @classmethod
@@ -111,15 +125,12 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
         cls.user = UserFactory()
 
     def setUp(self):
-        self.block_1_a = BlockFactory(page=self.page_1)
-        self.block_1_b = BlockFactory(page=self.page_1, previous=self.block_1_a)
-        self.block_1_a.next = self.block_1_b
-        self.block_1_a.save()
-        self.block_1_a.refresh_from_db()
-        self.block_1_c = BlockFactory(page=self.page_1, previous=self.block_1_b)
-        self.block_1_b.next = self.block_1_c
-        self.block_1_b.save()
-        self.block_1_b.refresh_from_db()
+        self.block_1_c = BlockFactory(page=self.page_1)
+        self.block_1_b = BlockFactory(page=self.page_1, next=self.block_1_c)
+        self.block_1_a = BlockFactory(page=self.page_1, next=self.block_1_b)
+        self.page_1.first_block = self.block_1_a
+        self.page_1.save()
+        self.page_1.refresh_from_db()
 
         self.payload = {
             "page": self.page_1.uid,
@@ -139,123 +150,153 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
             "page": str(block.page.uid),
             "content": block.content,
             "next": str(block.next.uid) if block.next else None,
-            "previous": str(block.previous.uid) if block.previous else None,
         }
 
     def test_post_fails_for_unauthenticated(self):
-        response = self.call_post_api(self.payload)
+        """ Test that post fails for unauthenticated request """
+        with self.assertNumQueries(0):
+            response = self.call_post_api(self.payload)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_post_fails_if_page_is_not_provided(self):
+    def test_post_fails_if_page_not_provided(self):
+        """ Test that post fails when page field is missing """
         self.payload.pop("page")
+
         response = self.call_post_api(self.payload, self.user)
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.json())
         self.assertDictEqual({"page": ["This field is required."]}, response.json())
 
-    def test_post_fails_if_invalid_page_uid_provided(self):
-        # Ideally, there won't be a duplicate.
-        # Still, adding while clause to make sure of this.
-        while (invalid_uid := uuid7()) in {self.page_1.uid, self.page_2.uid}:
-            continue
-        self.payload["page"] = invalid_uid
+    def test_post_fails_if_content_not_provided(self):
+        """ Test that post fails when content field is missing """
+        self.payload.pop("content")
+
         response = self.call_post_api(self.payload, self.user)
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.json())
-        self.assertDictEqual({"page": ["Page not found."]}, response.json())
+        self.assertDictEqual({"content": ["This field is required."]}, response.json())
 
-    def test_post_no_existing_block_in_page(self):
-        self.payload["page"] = self.page_2.uid
-        self.payload["next"] = None
-
-        with self.assertNumQueries(5):
-            # 1. Query for fetching page
-            # 2. Query for fetching current last block
-            # 3. Savepoint
-            # 4. Query for inserting new block
-            # 5. Release savepoint
-            response = self.call_post_api(self.payload, self.user)
-
-        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.json())
-        new_block = Block.objects.get(page=self.page_2)
-        self.assertDictEqual(self.create_block_response(new_block), response.json())
-
-    def test_post_existing_blocks_in_page_next_prev_not_provided_page_added_to_end(self):
-        page = Page.objects.get(uid=self.payload["page"])
-        original_last_block = page.last_block
-
-        self.payload["next"] = None
-
-        with self.assertNumQueries(6):
-            # 1. Query for fetching page
-            # 2. Query for fetching current last block
-            # 3. Savepoint
-            # 4. Query for inserting new block
-            # 5. Query to bulk-update adjacent blocks' pointers
-            # 6. Release savepoint
-            response = self.call_post_api(self.payload, self.user)
-
-        self.assertEqual(status.HTTP_201_CREATED, response.status_code)
-
-        page.refresh_from_db()
-        new_block = page.last_block
-        original_last_block.refresh_from_db()
-        self.assertIsNone(new_block.next)
-        self.assertEqual(original_last_block, new_block.previous)
-        self.assertEqual(new_block, original_last_block.next)
-
-    def test_post_fails_if_linked_blocks_not_found(self):
-        self.payload["next"] = uuid7()  # non-existent UID
+    def test_post_fails_if_invalid_page_uid_provided(self):
+        """ Test that post fails when page uid does not exist """
+        while (invalid_uid := uuid7()) in {self.page_1.uid, self.page_2.uid}:
+            continue
+        self.payload["page"] = invalid_uid
 
         response = self.call_post_api(self.payload, self.user)
 
-        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
-        self.assertIn("non_field_errors", response.json())
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.json())
+        self.assertDictEqual({"page": [f"Object with uid={invalid_uid} does not exist."]}, response.json())
 
-    def test_post_creates_block_in_middle(self):
-        # Default payload inserts between block_1_b and block_1_c
-        with self.assertNumQueries(6):
-            # 1. Query for fetching page
-            # 2. Query for fetching linked blocks
-            # 3. Savepoint
-            # 4. Query for inserting new block
-            # 5. Query to bulk-update adjacent blocks' pointers
-            # 6. Release savepoint
-            response = self.call_post_api(self.payload, self.user)
+    def test_post_fails_if_invalid_next_uid_provided(self):
+        """ Test that post fails when next uid does not exist """
+        while (invalid_uid := uuid7()) in set(Block.objects.values_list("uid", flat=True)):
+            continue
+        self.payload["next"] = invalid_uid
 
-        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.json())
-        new_block = Block.objects.get(page=self.page_1, content=self.payload["content"])
-        self.assertDictEqual(self.create_block_response(new_block), response.json())
+        response = self.call_post_api(self.payload, self.user)
 
-        self.block_1_b.refresh_from_db()
-        self.block_1_c.refresh_from_db()
-        self.assertEqual(self.block_1_b.next, new_block)
-        self.assertEqual(self.block_1_c.previous, new_block)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.json())
+        self.assertDictEqual({"next": [f"Object with uid={invalid_uid} does not exist."]}, response.json())
 
-    def test_post_creates_block_as_new_first(self):
-        # block_1_a is the first block (previous=None)
+    def test_post_fails_if_next_block_is_from_different_page(self):
+        """ Test that post fails when next block belongs to a different page """
+        other_page_block = BlockFactory(page=self.page_2)
+        self.payload["next"] = other_page_block.uid
+
+        response = self.call_post_api(self.payload, self.user)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.json())
+        self.assertDictEqual({"non_field_errors": ["next block is in different page."]}, response.json())
+
+    def test_post_first_block_in_page_sets_page_first_block(self):
+        """ Test that creating the first block in a page sets page.first_block """
+        # page_2 has no blocks yet
+        with self.assertNumQueries(5):
+            # 1. SlugRelatedField resolves `page` (page_2)
+            # 2. Savepoint
+            # 3. INSERT new block
+            # 4. page.save() — page_2.first_block was None, so it's updated
+            # 5. Release savepoint
+            # (`next` is None — SlugRelatedField skips the DB lookup)
+            response = self.call_post_api(
+                {"page": self.page_2.uid, "content": faker.sentence(), "next": None}, self.user
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.json())
+        new_block = Block.objects.get(page=self.page_2)
+        self.page_2.refresh_from_db()
+        self.assertEqual(self.page_2.first_block, new_block)
+        self.assertIsNone(new_block.next)
+
+    def test_post_insert_before_first_block_updates_page_first_block(self):
+        """ Test that inserting before the current first block updates page.first_block """
+        # next=block_1_a means the new block becomes the new head of the list
         self.payload["next"] = self.block_1_a.uid
 
-        with self.assertNumQueries(6):
-            # 1. Query for fetching page
-            # 2. Query for fetching linked blocks
+        with self.assertNumQueries(7):
+            # 1. SlugRelatedField resolves `page`
+            # 2. SlugRelatedField resolves `next` and select related previous
             # 3. Savepoint
-            # 4. Query for inserting new block
-            # 5. Query to bulk-update adjacent block's pointer
+            # 4. INSERT new block
+            # 5. bulk_update new block's next pointer
+            # 6. page.save() — new block is now the head, first_block updated
+            # 7. Release savepoint
+            response = self.call_post_api(self.payload, self.user)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.json())
+        new_block = Block.objects.get(page=self.page_1, content=self.payload["content"])
+        self.page_1.refresh_from_db()
+        self.assertEqual(self.page_1.first_block, new_block)
+        self.assertEqual(new_block.next, self.block_1_a)
+
+    def test_post_insert_in_middle_rewires_adjacent_blocks(self):
+        """ Test that inserting in the middle rewires neighbours and leaves page.first_block unchanged """
+        # Default payload inserts between block_1_b and block_1_c
+        with self.assertNumQueries(6):
+            # 1. SlugRelatedField resolves `page`
+            # 2. SlugRelatedField resolves `next` (block_1_c)
+            # 3. Savepoint
+            # 4. INSERT new block
+            # 5. bulk_update block_1_b.next and new block's next
             # 6. Release savepoint
             response = self.call_post_api(self.payload, self.user)
 
-        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.json())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.json())
         new_block = Block.objects.get(page=self.page_1, content=self.payload["content"])
-        self.assertDictEqual(self.create_block_response(new_block), response.json())
 
-        self.block_1_a.refresh_from_db()
-        self.assertEqual(self.block_1_a.previous, new_block)
+        self.block_1_b.refresh_from_db()
+        self.assertEqual(self.block_1_b.next, new_block)
+        self.assertEqual(new_block.next, self.block_1_c)
+        # Assert that page's first_block is unchanged
+        self.page_1.refresh_from_db()
+        self.assertEqual(self.page_1.first_block, self.block_1_a)
+
+    def test_post_insert_as_last_block_does_not_change_page_first_block(self):
+        """ Test that appending to the end leaves page.first_block unchanged """
+        # next=None — block appended to the end
+        self.payload["next"] = None
+
+        with self.assertNumQueries(4):
+            # 1. SlugRelatedField resolves `page`
+            # 2. Savepoint
+            # 3. INSERT new block
+            # 4. Release savepoint
+            response = self.call_post_api(self.payload, self.user)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.json())
+        new_block = Block.objects.get(page=self.page_1, content=self.payload["content"])
+        self.assertIsNone(new_block.next)
+
+        self.page_1.refresh_from_db()
+        self.assertEqual(self.page_1.first_block, self.block_1_a)
 
     def test_post_create_is_atomic(self):
-        existing_blocks_count = Block.objects.filter(page__uid=self.payload["page"]).count()
+        """ Test that a failed bulk_update rolls back the entire block creation """
+        existing_blocks_count = Block.objects.filter(page=self.page_1).count()
         with patch.object(Block.objects, "bulk_update", side_effect=Exception("Simulated failure")):
             with self.assertRaises(Exception):
                 self.call_post_api(self.payload, self.user)
 
-        self.assertEqual(existing_blocks_count, Block.objects.filter(page__uid=self.payload["page"]).count())
+        self.assertEqual(existing_blocks_count, Block.objects.filter(page=self.page_1).count())
+        self.page_1.refresh_from_db()
+        self.assertEqual(self.page_1.first_block, self.block_1_a)

@@ -1,15 +1,16 @@
 PAGE_BLOCKS_QUERY = """
-WITH RECURSIVE blocks AS (
+WITH RECURSIVE page AS ( SELECT id, first_block_id FROM page_page WHERE id = %s),
+blocks AS (
     SELECT
-        id,
+        page_block.id,
         uid,
         content,
         next_id,
         1 as index
     FROM
         page_block
-    WHERE
-        page_id = %s and previous_id IS NULL
+    JOIN
+        page ON page_block.id = page.first_block_id AND page_block.page_id = page.id
 UNION ALL
     SELECT
         pb.id,

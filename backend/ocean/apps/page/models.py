@@ -19,6 +19,7 @@ class Page(models.Model):
     is_read_only = models.BooleanField(default=False)
     extra = models.JSONField(default=dict, blank=True)
     creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_pages")
+    first_block = models.OneToOneField("Block", on_delete=models.SET_NULL, null=True, related_name="starts_page")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -47,9 +48,6 @@ class Page(models.Model):
         # TODO: Only update specific columns
         self.save()
 
-    @property
-    def first_block(self) -> "Block" | None:
-        return self.blocks.filter(previous__isnull=True).first()
 
     @property
     def last_block(self) -> "Block" | None:
@@ -60,8 +58,7 @@ class Block(models.Model):
     uid = models.UUIDField(default=uuid7, unique=True)
     page = models.ForeignKey(Page, on_delete=models.CASCADE, related_name="blocks")
     content = models.TextField()
-    next = models.OneToOneField("self", on_delete=models.SET_NULL, null=True, related_name="previous_block")
-    previous = models.OneToOneField("self", on_delete=models.SET_NULL, null=True, related_name="next_block")
+    next = models.OneToOneField("self", on_delete=models.SET_NULL, null=True, related_name="previous")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
