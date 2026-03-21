@@ -70,20 +70,6 @@ class Block(models.Model):
     objects = SoftDeleteManager()
     all_objects = models.Manager()
 
-    class Meta:
-        constraints = [
-            # Reason for keeping nulls_distinct = True?
-            # When 1st block is created, its next is obviouly null. Now, when the 2nd block is created its next
-            # will also be null and after its creation, we will set 1st block's next to point to the 2nd block.
-            # So, during that time, we can't avoid having 2 blocks that have null as their next pointer.
-            # THIS MUST BE HANDLED IN THE INSERTION LOGIC.
-            # For previous pointer, similar logic applies if we add a new block before the 1st block.
-            models.UniqueConstraint(name="page_next_unique_together", fields=["page", "next"], nulls_distinct=True),
-            models.UniqueConstraint(
-                name="page_previous_unique_together", fields=["page", "previous"], nulls_distinct=True
-            ),
-        ]
-
 
 class PageAction(models.Model):
     class ActionType(models.TextChoices):
