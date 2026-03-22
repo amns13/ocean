@@ -301,16 +301,19 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
         # next=None — block appended to the end
         self.payload["next"] = None
 
-        with self.assertNumQueries(4):
+        with self.assertNumQueries(5):
             # 1. SlugRelatedField resolves `page`
             # 2. Savepoint
             # 3. INSERT new block
-            # 4. Release savepoint
+            # 4. Update the next of previous last block
+            # 5. Release savepoint
             response = self.call_post_api(self.payload, self.user)
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.json())
         new_block = Block.objects.get(page=self.page_1, content=self.payload["content"])
         self.assertIsNone(new_block.next)
+        self.block_1_c.refresh_from_db()
+        self.assertEqual(new_block, self.block_1_c.next)
 
         self.page_1.refresh_from_db()
         self.assertEqual(self.page_1.first_block, self.block_1_a)

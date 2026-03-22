@@ -53,6 +53,8 @@ class BlockCreateUpdateSerializer(serializers.ModelSerializer):
         next = validated_data.pop("next", None)
         instance = super().create(validated_data)
 
+        page = instance.page
+
         if next:
             # TODO: Can we use select_related?
             update_timestamp = timezone.now()
@@ -71,8 +73,14 @@ class BlockCreateUpdateSerializer(serializers.ModelSerializer):
             instance.updated_at = update_timestamp
             to_update.append(instance)
             Block.objects.bulk_update(to_update, fields=["next", "updated_at"])
+        else:
+            # If there are already existing blocks and the new block does not have a next pointer, it means that it
+            # is the new last pointer. We need to set it as the next pointer of the previous last block.
+            if page.first_block_id:
+                Block.objects.filter(page_id=page.id, next_id__isnull=True).exclude(id=instance.id).update(
+                    next_id=instance.id, updated_at=timezone.now()
+                )
 
-        page = instance.page
         if not page.first_block_id or (next and page.first_block_id == next.id):
             page.first_block_id = instance.id
             page.save(update_fields=["first_block_id", "updated_at"])
