@@ -1,4 +1,3 @@
-// src/todos.js
 import apiClient from "./axios";
 
 export const pagesApi = {
@@ -6,19 +5,23 @@ export const pagesApi = {
     return apiClient.get("/pages/");
   },
 
-  getOne(id) {
-    return apiClient.get(`/pages/${id}/`);
+  getOne(uid) {
+    return apiClient.get(`/pages/${uid}/`);
   },
 
-  create(todoData) {
-    return apiClient.post("/pages/", todoData);
+  create(pageData) {
+    return apiClient.post("/pages/", pageData);
   },
 
-  update(id, todoData) {
-    return apiClient.put(`/pages/${id}/`, todoData);
+  update(uid, pageData) {
+    return apiClient.put(`/pages/${uid}/`, pageData);
   },
 
-  delete(id) {
-    return apiClient.delete(`/pages/${id}/`);
+  delete(uid) {
+    return apiClient.delete(`/pages/${uid}/`);
+  },
+
+  getPageBlocks(uid) {
+    return apiClient.get(`/pages/${uid}/blocks/`);
   },
 };

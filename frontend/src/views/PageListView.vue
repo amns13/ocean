@@ -1,36 +1,21 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { usePageStore } from "../stores/pages";
 
 const router = useRouter();
 const pageStore = usePageStore();
 
-const newTitle = ref("");
-const creating = ref(false);
-
 onMounted(() => {
   pageStore.fetchPages();
 });
 
 async function handleCreate() {
-  if (!newTitle.value.trim()) return;
-  creating.value = true;
   try {
-    await pageStore.createPage({ title: newTitle.value.trim() });
-    newTitle.value = "";
+    const page = await pageStore.createPage({ title: "Untitled" });
+    router.push({ name: "Page", params: { uid: page.uid, slug: page.slug } });
   } catch (err) {
     console.error("Failed to create page", err);
-  } finally {
-    creating.value = false;
-  }
-}
-
-async function handleToggle(page) {
-  try {
-    await pageStore.updatePage(page.id, { completed: !page.completed });
-  } catch (err) {
-    console.error("Failed to update page", err);
   }
 }
 
@@ -46,20 +31,9 @@ async function handleDelete(id) {
 
 <template>
   <div>
-    <!-- Create Page Form -->
-    <div class="create-card">
+    <div class="header-card">
       <h2>My Pages</h2>
-      <form @submit.prevent="handleCreate" class="create-form">
-        <input
-          v-model="newTitle"
-          type="text"
-          placeholder="What needs to be done?"
-          required
-        />
-        <button type="submit" :disabled="creating" class="btn-primary">
-          {{ creating ? "Adding..." : "Add Page" }}
-        </button>
-      </form>
+      <button @click="handleCreate" class="btn-new">New Page</button>
     </div>
 
     <!-- Error -->
@@ -70,36 +44,27 @@ async function handleDelete(id) {
 
     <!-- Empty State -->
     <div v-else-if="pageStore.pages.length === 0" class="empty-state">
-      <p>No pages yet. Add one above to get started!</p>
+      <p>No pages yet.</p>
     </div>
 
     <!-- Page List -->
     <ul v-else class="page-list">
-      <li
-        v-for="page in pageStore.pages"
-        :key="page.id"
-        class="page-item"
-        :class="{ completed: page.completed }"
-      >
-        <input
-          type="checkbox"
-          :checked="page.completed"
-          @change="handleToggle(page)"
-          class="page-checkbox"
-        />
-
-        <span class="page-title">{{ page.title }}</span>
+      <li v-for="page in pageStore.pages" :key="page.uid" class="page-item">
+        <div
+          class="page-info"
+          @click="
+            router.push({
+              name: 'Page',
+              params: { uid: page.uid, slug: page.slug },
+            })
+          "
+        >
+          <span class="page-title">{{ page.title }}</span>
+          <span class="page-meta">{{ page.slug }} &middot; {{ page.uid }}</span>
+        </div>
 
         <div class="page-actions">
-          <button
-            @click="
-              router.push({ name: 'PageDetail', params: { id: page.id } })
-            "
-            class="btn-view"
-          >
-            View
-          </button>
-          <button @click="handleDelete(page.id)" class="btn-delete">
+          <button @click="handleDelete(page.uid)" class="btn-delete">
             Delete
           </button>
         </div>
@@ -109,58 +74,36 @@ async function handleDelete(id) {
 </template>
 
 <style scoped>
-.create-card {
+.header-card {
   background: white;
   padding: 1.5rem;
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.btn-new {
+  padding: 0.4rem 1rem;
+  background: #4f46e5;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-new:hover {
+  background: #4338ca;
 }
 
 h2 {
   font-size: 1.4rem;
   font-weight: 700;
-  margin-bottom: 1rem;
-}
-
-.create-form {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.create-form input {
-  flex: 1;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 1rem;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.create-form input:focus {
-  border-color: #4f46e5;
-}
-
-.btn-primary {
-  padding: 0.65rem 1.25rem;
-  background: #4f46e5;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  transition: background-color 0.2s;
-  white-space: nowrap;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #4338ca;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .error-message {
@@ -199,50 +142,28 @@ h2 {
   display: flex;
   align-items: center;
   gap: 1rem;
-  transition: opacity 0.2s;
 }
 
-.page-item.completed {
-  opacity: 0.6;
-}
-
-.page-checkbox {
-  width: 18px;
-  height: 18px;
+.page-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
   cursor: pointer;
-  accent-color: #4f46e5;
-  flex-shrink: 0;
 }
 
 .page-title {
-  flex: 1;
   font-size: 1rem;
 }
 
-.page-item.completed .page-title {
-  text-decoration: line-through;
-  color: #999;
+.page-meta {
+  font-size: 0.75rem;
+  color: #888;
 }
 
 .page-actions {
   display: flex;
   gap: 0.5rem;
-}
-
-.btn-view {
-  padding: 0.35rem 0.85rem;
-  background: transparent;
-  color: #4f46e5;
-  border: 1px solid #4f46e5;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.btn-view:hover {
-  background: #4f46e5;
-  color: white;
 }
 
 .btn-delete {

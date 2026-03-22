@@ -2,7 +2,7 @@
   <div class="auth-container">
     <div class="auth-card">
       <h1>Create account</h1>
-      <p class="subtitle">Start managing your todos</p>
+      <p class="subtitle">Start writing</p>
 
       <form @submit.prevent="handleRegister">
         <div class="form-group">
@@ -79,7 +79,7 @@ async function handleRegister() {
     );
     // After registering, log them in automatically
     await authStore.login(form.value.username, form.value.password);
-    router.push({ name: "TodoList" });
+    router.push({ name: "PageList" });
   } catch (err) {
     error.value =
       err.response?.data?.detail || "Registration failed. Please try again.";

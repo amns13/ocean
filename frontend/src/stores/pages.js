@@ -42,7 +42,7 @@ export const usePageStore = defineStore("pages", () => {
 
   async function updatePage(id, pageData) {
     const response = await pagesApi.update(id, pageData);
-    const index = pages.value.findIndex((t) => t.id === id);
+    const index = pages.value.findIndex((p) => p.id === id);
     if (index !== -1) {
       pages.value[index] = response.data;
     }
@@ -54,7 +54,12 @@ export const usePageStore = defineStore("pages", () => {
 
   async function deletePage(id) {
     await pagesApi.delete(id);
-    pages.value = pages.value.filter((t) => t.id !== id);
+    pages.value = pages.value.filter((p) => p.id !== id);
+  }
+
+  async function getPageBlocks(uid) {
+    const response = await pagesApi.getPageBlocks(uid);
+    currentPage.value.blocks = response.data;
   }
 
   return {
@@ -67,5 +72,6 @@ export const usePageStore = defineStore("pages", () => {
     createPage,
     updatePage,
     deletePage,
+    getPageBlocks,
   };
 });

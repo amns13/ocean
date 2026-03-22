@@ -19,12 +19,6 @@ const routes = [
     component: () => import("../views/RegisterView.vue"),
     meta: { requiresGuest: true },
   },
-  // {
-  //   path: '/pages',
-  //   name: 'PageList',
-  //   component: () => import('../views/PageListView.vue'),
-  //   meta: { requiresAuth: true },
-  // },
   {
     // All authenticated routes are nested under this layout
     path: "/",
@@ -37,9 +31,9 @@ const routes = [
         component: () => import("../views/PageListView.vue"),
       },
       {
-        path: "pages/:id",
-        name: "PageDetail",
-        component: () => import("../views/PageDetailView.vue"),
+        path: "pages/:uid/:slug",
+        name: "Page",
+        component: () => import("../views/PageView.vue"),
       },
     ],
   },
