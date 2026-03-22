@@ -56,7 +56,7 @@ class Page(models.Model):
 class Block(models.Model):
     uid = models.UUIDField(default=uuid7, unique=True)
     page = models.ForeignKey(Page, on_delete=models.CASCADE, related_name="blocks")
-    content = models.TextField()
+    content = models.TextField(blank=True)
     # Django create OneToOneField as a ForeignKey with UniqueConstraint. This unique constraint in non_deferrable.
     # Now consider the scenario:
     # Blocks: A -> B -> C -> D

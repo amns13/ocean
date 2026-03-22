@@ -106,11 +106,11 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
     POST:
     - Test that post fails for unauthenticated request
     - Test that post fails when page field is missing
-    - Test that post fails when content field is missing
     - Test that post fails when page uid does not exist
     - Test that post fails when next uid does not exist
     - Test that post fails when next block belongs to a different page
     - Test that creating the first block in a page sets page.first_block
+    - Test that blocks can be created with empty content
     - Test that inserting before the current first block updates page.first_block
     - Test that inserting in the middle rewires neighbours and leaves page.first_block unchanged
     - Test that appending to the end leaves page.first_block unchanged
@@ -192,15 +192,6 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.json())
         self.assertDictEqual({"page": ["This field is required."]}, response.json())
 
-    def test_post_fails_if_content_not_provided(self):
-        """Test that post fails when content field is missing"""
-        self.payload.pop("content")
-
-        response = self.call_post_api(self.payload, self.user)
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.json())
-        self.assertDictEqual({"content": ["This field is required."]}, response.json())
-
     def test_post_fails_if_invalid_page_uid_provided(self):
         """Test that post fails when page uid does not exist"""
         while (invalid_uid := uuid7()) in {self.page_1.uid, self.page_2.uid}:
@@ -252,6 +243,30 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
         self.page_2.refresh_from_db()
         self.assertEqual(self.page_2.first_block, new_block)
         self.assertIsNone(new_block.next)
+
+    
+    def test_post_insert_with_empty_content_is_successful(self):
+        """Test that blocks can be created with empty content"""
+        self.payload["content"] = ""
+        # Default payload inserts between block_1_b and block_1_c
+        # with self.assertNumQueries(6):
+        # 1. SlugRelatedField resolves `page`
+        # 2. SlugRelatedField resolves `next` (block_1_c)
+        # 3. Savepoint
+        # 4. INSERT new block
+        # 5. bulk_update block_1_b.next and new block's next
+        # 6. Release savepoint
+        response = self.call_post_api(self.payload, self.user)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.json())
+        new_block = Block.objects.get(page=self.page_1, content=self.payload["content"])
+
+        self.block_1_b.refresh_from_db()
+        self.assertEqual(self.block_1_b.next, new_block)
+        self.assertEqual(new_block.next, self.block_1_c)
+        # Assert that page's first_block is unchanged
+        self.page_1.refresh_from_db()
+        self.assertEqual(self.page_1.first_block, self.block_1_a)
 
     def test_post_insert_before_first_block_updates_page_first_block(self):
         """Test that inserting before the current first block updates page.first_block"""
