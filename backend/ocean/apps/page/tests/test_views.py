@@ -240,6 +240,7 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.json())
         new_block = Block.objects.get(page=self.page_2)
+        self.assertDictEqual(self.create_block_response(new_block), response.json())
         self.page_2.refresh_from_db()
         self.assertEqual(self.page_2.first_block, new_block)
         self.assertIsNone(new_block.next)
@@ -260,6 +261,7 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.json())
         new_block = Block.objects.get(page=self.page_1, content=self.payload["content"])
+        self.assertDictEqual(self.create_block_response(new_block), response.json())
 
         self.block_1_b.refresh_from_db()
         self.assertEqual(self.block_1_b.next, new_block)
@@ -285,6 +287,7 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.json())
         new_block = Block.objects.get(page=self.page_1, content=self.payload["content"])
+        self.assertDictEqual(self.create_block_response(new_block), response.json())
         self.page_1.refresh_from_db()
         self.assertEqual(self.page_1.first_block, new_block)
         self.assertEqual(new_block.next, self.block_1_a)
@@ -303,6 +306,7 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.json())
         new_block = Block.objects.get(page=self.page_1, content=self.payload["content"])
+        self.assertDictEqual(self.create_block_response(new_block), response.json())
 
         self.block_1_b.refresh_from_db()
         self.assertEqual(self.block_1_b.next, new_block)
@@ -326,6 +330,7 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.json())
         new_block = Block.objects.get(page=self.page_1, content=self.payload["content"])
+        self.assertDictEqual(self.create_block_response(new_block), response.json())
         self.assertIsNone(new_block.next)
         self.block_1_c.refresh_from_db()
         self.assertEqual(new_block, self.block_1_c.next)
@@ -376,6 +381,7 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.json())
         self.block_1_b.refresh_from_db()
+        self.assertDictEqual(self.create_block_response(self.block_1_b), response.json())
         self.assertEqual(self.block_1_b.content, new_content)
         self.assertEqual(self.block_1_b.next, self.block_1_c)
 
@@ -391,6 +397,7 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.json())
         self.block_1_b.refresh_from_db()
+        self.assertDictEqual(self.create_block_response(self.block_1_b), response.json())
         self.assertEqual(self.block_1_b.next, self.block_1_c)
 
     def test_patch_move_to_end_sets_block_next_to_none(self):
@@ -405,6 +412,7 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.json())
         # Block's next is updated
         self.block_1_b.refresh_from_db()
+        self.assertDictEqual(self.create_block_response(self.block_1_b), response.json())
         self.assertIsNone(self.block_1_b.next)
         # previous block's next is updated
         self.block_1_a.refresh_from_db()
@@ -423,6 +431,7 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.json())
         self.block_1_c.refresh_from_db()
+        self.assertDictEqual(self.create_block_response(self.block_1_c), response.json())
         self.assertEqual(self.block_1_c.next, self.block_1_a)
         self.page_1.refresh_from_db()
         self.assertEqual(self.page_1.first_block, self.block_1_c)
@@ -441,6 +450,7 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.json())
         # Block's next is updated
         self.block_1_a.refresh_from_db()
+        self.assertDictEqual(self.create_block_response(self.block_1_a), response.json())
         self.assertEqual(self.block_1_c, self.block_1_a.next)
         # Page's first_block is updated
         self.page_1.refresh_from_db()
@@ -462,6 +472,7 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.json())
         # Block's next is updated
         self.block_1_b.refresh_from_db()
+        self.assertDictEqual(self.create_block_response(self.block_1_b), response.json())
         self.assertEqual(self.block_1_b.next, new_block)
         # new previous block is set
         self.block_1_c.refresh_from_db()

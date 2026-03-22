@@ -25,7 +25,8 @@ class BlockCreateUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Block
-        fields = ("page", "next", "content")
+        fields = ("uid", "page", "next", "content")
+        read_only_fields = ("uid",)
 
     def validate_page(self, page: Page) -> Page:
         if self.instance:
