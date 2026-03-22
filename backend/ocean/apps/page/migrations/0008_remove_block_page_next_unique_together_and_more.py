@@ -4,18 +4,17 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('page', '0007_block_created_at_block_deleted_at_block_updated_at'),
+        ("page", "0007_block_created_at_block_deleted_at_block_updated_at"),
     ]
 
     operations = [
         migrations.RemoveConstraint(
-            model_name='block',
-            name='page_next_unique_together',
+            model_name="block",
+            name="page_next_unique_together",
         ),
         migrations.RemoveConstraint(
-            model_name='block',
-            name='page_previous_unique_together',
+            model_name="block",
+            name="page_previous_unique_together",
         ),
     ]

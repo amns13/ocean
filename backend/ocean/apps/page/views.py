@@ -5,7 +5,7 @@ from rest_framework.response import Response
 
 from ocean.apps.page.models import Block, Page
 from ocean.apps.page.queries import PAGE_BLOCKS_QUERY
-from ocean.apps.page.serializers import BlockCreateSerializer, PageSerializer
+from ocean.apps.page.serializers import BlockCreateUpdateSerializer, PageSerializer
 
 
 class PageViewSet(viewsets.ModelViewSet):
@@ -40,17 +40,18 @@ class BlockCreateUpdateDestroyViewSet(
 ):
     permission_classes = [permissions.IsAuthenticated]
     lookup_field = "uid"
-    queryset = Block.objects.select_related("page")
+    serializer_class = BlockCreateUpdateSerializer
+    http_method_names = ["post", "patch", "delete", "head", "options"]
 
-    def get_serializer_class(self):
-        if self.action == "create":
-            return BlockCreateSerializer
-
-    def get_serilizer_context(self) -> dict:
-        context = super().get_serializer_context()
-        context.update({"action": self.action})
-        return context
+    def get_queryset(self):
+        return Block.objects.select_related("page", "next", "previous").only(
+            "uid", "content", "page_id", "page__uid", "page__first_block_id", "next_id", "next__uid", "previous__id"
+        )
 
     @transaction.atomic
     def perform_create(self, serializer):
         return super().perform_create(serializer)
+
+    @transaction.atomic
+    def perform_update(self, serializer):
+        return super().perform_update(serializer)

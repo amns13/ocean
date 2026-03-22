@@ -48,7 +48,6 @@ class Page(models.Model):
         # TODO: Only update specific columns
         self.save()
 
-
     @property
     def last_block(self) -> "Block" | None:
         return self.blocks.filter(next__isnull=True).first()
@@ -58,7 +57,16 @@ class Block(models.Model):
     uid = models.UUIDField(default=uuid7, unique=True)
     page = models.ForeignKey(Page, on_delete=models.CASCADE, related_name="blocks")
     content = models.TextField()
-    next = models.OneToOneField("self", on_delete=models.SET_NULL, null=True, related_name="previous")
+    # Django create OneToOneField as a ForeignKey with UniqueConstraint. This unique constraint in non_deferrable.
+    # Now consider the scenario:
+    # Blocks: A -> B -> C -> D
+    # We want to move B to the position after D, i.e, new config: A -> C -> B -> D.
+    # If we try to update all of A, B and C's next in one query, Postgres throws an error that unique constraint is
+    # violated due to multiple blocks having B/C/D as next blocks, even though at the end of the query, uniqueness is maintained.
+    # To handle this, we create an explicit deferred unique constraint from class.Meta and remove the implicit contraint.
+    next = models.OneToOneField(
+        "self", on_delete=models.SET_NULL, null=True, related_name="previous", db_constraint=False, db_index=False
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -66,6 +74,15 @@ class Block(models.Model):
 
     objects = SoftDeleteManager()
     all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                name="unique_block_next",
+                fields=["next"],
+                deferrable=models.Deferrable.DEFERRED,
+            )
+        ]
 
 
 class PageAction(models.Model):

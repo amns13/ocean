@@ -5,19 +5,20 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('page', '0008_remove_block_page_next_unique_together_and_more'),
+        ("page", "0008_remove_block_page_next_unique_together_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='block',
-            name='previous',
+            model_name="block",
+            name="previous",
         ),
         migrations.AlterField(
-            model_name='block',
-            name='next',
-            field=models.OneToOneField(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='previous', to='page.block'),
+            model_name="block",
+            name="next",
+            field=models.OneToOneField(
+                null=True, on_delete=django.db.models.deletion.SET_NULL, related_name="previous", to="page.block"
+            ),
         ),
     ]
