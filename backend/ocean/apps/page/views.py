@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import mixins, permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -55,3 +56,26 @@ class BlockCreateUpdateDestroyViewSet(
     @transaction.atomic
     def perform_update(self, serializer):
         return super().perform_update(serializer)
+
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        next = instance.next
+        try:
+            prev = instance.previous
+        except Block.previous.RelatedObjectDoesNotExist:
+            prev = None
+
+        # If there is a previous block linked to deleted block, link it to the deleted block's next
+        if prev:
+            prev.next = next
+            prev.save(update_fields=["next", "updated_at"])
+
+        page = instance.page
+        # If deleted block was the first block of the page, then mark its next as the first block.
+        if page.first_block_id == instance.id:
+            page.first_block_id = next.id if next else None
+            page.save(update_fields=["first_block_id", "updated_at"])
+
+        instance.next = None
+        instance.deleted_at = timezone.now()
+        instance.save(update_fields=["next", "deleted_at", "updated_at"])

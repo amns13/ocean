@@ -125,6 +125,15 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
     - Test that PATCH move to end sets block.next to None
     - Test that PATCH insert before first block updates page.first_block
     - Test that PATCH update is atomic
+
+    DELETE:
+    - Test that DELETE fails for unauthenticated request
+    - Test that DELETE returns 404 for a non-existent block
+    - Test that DELETE soft-deletes a middle block and rewires neighbours
+    - Test that DELETE soft-deletes the first block and updates page.first_block
+    - Test that DELETE soft-deletes the last block and updates previous block's next
+    - Test that DELETE soft-deletes the only block and clears page.first_block
+    - Test that DELETE is atomic
     """
 
     list_url = reverse("page:block-list")
@@ -167,6 +176,11 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
         if user:
             self.client.force_authenticate(user)
         return self.client.put(self.get_detail_url(uid), data, format="json")
+
+    def call_delete_api(self, uid, user=None):
+        if user:
+            self.client.force_authenticate(user)
+        return self.client.delete(self.get_detail_url(uid))
 
     @staticmethod
     def create_block_response(block: Block) -> dict:
@@ -491,3 +505,95 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
         self.assertEqual(self.block_1_b.next, self.block_1_c)
         self.page_1.refresh_from_db()
         self.assertEqual(self.page_1.first_block, self.block_1_a)
+
+    # --- DELETE ---
+
+    def test_delete_fails_for_unauthenticated(self):
+        """Test that DELETE fails for unauthenticated request"""
+        response = self.call_delete_api(self.block_1_b.uid)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_delete_returns_404_for_nonexistent_block(self):
+        """Test that DELETE returns 404 for a non-existent block"""
+        while (invalid_uid := uuid7()) in set(Block.objects.values_list("uid", flat=True)):
+            continue
+        response = self.call_delete_api(invalid_uid, self.user)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_delete_middle_block_rewires_neighbours(self):
+        """Test that DELETE soft-deletes a middle block and rewires neighbours"""
+        with self.assertNumQueries(5):
+            # 1. Fetch block (with select_related page, next, previous)
+            # 2. Savepoint
+            # 3. prev.save() — block_1_a.next = block_1_c
+            # 4. instance.save() — soft-delete block_1_b
+            # 5. Release savepoint
+            response = self.call_delete_api(self.block_1_b.uid, self.user)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Block.objects.filter(uid=self.block_1_b.uid).exists())
+        self.block_1_a.refresh_from_db()
+        self.assertEqual(self.block_1_a.next, self.block_1_c)
+        self.page_1.refresh_from_db()
+        self.assertEqual(self.page_1.first_block, self.block_1_a)
+
+    def test_delete_first_block_updates_page_first_block(self):
+        """Test that DELETE soft-deletes the first block and updates page.first_block"""
+        with self.assertNumQueries(5):
+            # 1. Fetch block (with select_related page, next, previous)
+            # 2. Savepoint
+            # 3. page.save() — first_block updated to block_1_b
+            # 4. instance.save() — soft-delete block_1_a
+            # 5. Release savepoint
+            response = self.call_delete_api(self.block_1_a.uid, self.user)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Block.objects.filter(uid=self.block_1_a.uid).exists())
+        self.page_1.refresh_from_db()
+        self.assertEqual(self.page_1.first_block, self.block_1_b)
+
+    def test_delete_last_block_updates_previous_block_next(self):
+        """Test that DELETE soft-deletes the last block and updates previous block's next"""
+        with self.assertNumQueries(5):
+            # 1. Fetch block (with select_related page, next, previous)
+            # 2. Savepoint
+            # 3. prev.save() — block_1_b.next = None
+            # 4. instance.save() — soft-delete block_1_c
+            # 5. Release savepoint
+            response = self.call_delete_api(self.block_1_c.uid, self.user)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Block.objects.filter(uid=self.block_1_c.uid).exists())
+        self.block_1_b.refresh_from_db()
+        self.assertIsNone(self.block_1_b.next)
+        self.page_1.refresh_from_db()
+        self.assertEqual(self.page_1.first_block, self.block_1_a)
+
+    def test_delete_only_block_clears_page_first_block(self):
+        """Test that DELETE soft-deletes the only block on a page and clears page.first_block"""
+        only_block = BlockFactory(page=self.page_2)
+        self.page_2.first_block = only_block
+        self.page_2.save()
+
+        with self.assertNumQueries(5):
+            # 1. Fetch block (with select_related page, next, previous)
+            # 2. Savepoint
+            # 3. page.save() — first_block cleared to None
+            # 4. instance.save() — soft-delete
+            # 5. Release savepoint
+            response = self.call_delete_api(only_block.uid, self.user)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Block.objects.filter(uid=only_block.uid).exists())
+        self.page_2.refresh_from_db()
+        self.assertIsNone(self.page_2.first_block)
+
+    def test_delete_is_atomic(self):
+        """Test that DELETE is atomic"""
+        with patch("ocean.apps.page.views.timezone.now", side_effect=Exception("Simulated failure")):
+            with self.assertRaises(Exception):
+                self.call_delete_api(self.block_1_b.uid, self.user)
+
+        self.assertTrue(Block.objects.filter(uid=self.block_1_b.uid).exists())
+        self.block_1_a.refresh_from_db()
+        self.assertEqual(self.block_1_a.next, self.block_1_b)
