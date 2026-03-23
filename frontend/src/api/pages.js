@@ -25,3 +25,17 @@ export const pagesApi = {
     return apiClient.get(`/pages/${uid}/blocks/`);
   },
 };
+
+export const blocksApi = {
+  create(blockData) {
+    return apiClient.post("/blocks/", blockData);
+  },
+
+  update(uid, blockData) {
+    return apiClient.patch(`/blocks/${uid}/`, blockData);
+  },
+
+  delete(uid) {
+    return apiClient.delete(`/blocks/${uid}/`);
+  },
+};
