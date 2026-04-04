@@ -17,7 +17,9 @@ class PageSerializer(serializers.ModelSerializer):
 
 
 class BlockCreateUpdateSerializer(serializers.ModelSerializer):
-    page = serializers.SlugRelatedField(slug_field="uid", queryset=Page.objects.annotate(last_block_index=Max("blocks__index")).only("uid").all())
+    page = serializers.SlugRelatedField(
+        slug_field="uid", queryset=Page.objects.annotate(last_block_index=Max("blocks__index")).only("uid").all()
+    )
 
     class Meta:
         model = Block
@@ -31,6 +33,5 @@ class BlockCreateUpdateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data: dict[str, Any]) -> Block:
         page = validated_data["page"]
-        validated_data["index"] = page.last_block_index+1 if page.last_block_index else 1
+        validated_data["index"] = page.last_block_index + 1 if page.last_block_index else 1
         return super().create(validated_data)
-

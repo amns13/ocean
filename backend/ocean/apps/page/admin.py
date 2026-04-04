@@ -7,4 +7,3 @@ from ocean.apps.page.models import Page
 class PageAdmin(admin.ModelAdmin):
     exclude = ("deleted_at",)
     prepopulated_fields = {"slug": ["title"]}
-

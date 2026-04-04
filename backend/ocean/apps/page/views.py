@@ -39,4 +39,3 @@ class BlockCreateUpdateDestroyViewSet(
     serializer_class = BlockCreateUpdateSerializer
     queryset = Block.objects.all()
     http_method_names = ["post", "patch", "delete", "head", "options"]
-
