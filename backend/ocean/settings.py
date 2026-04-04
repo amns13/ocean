@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     # My apps
+    "ocean.apps.common",
     "ocean.apps.user",
     "ocean.apps.page",
 ]
