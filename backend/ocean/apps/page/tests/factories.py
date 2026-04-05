@@ -28,3 +28,4 @@ class BlockFactory(DjangoModelFactory):
     uid = factory.LazyFunction(uuid7)
     page = factory.SubFactory(PageFactory)
     content = factory.Faker("sentence", nb_words=5)
+    index = factory.Sequence(lambda n: n + 1)

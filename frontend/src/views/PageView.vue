@@ -3,6 +3,9 @@ import { ref, onMounted, nextTick } from "vue";
 import { useRoute } from "vue-router";
 import { pagesApi, blocksApi } from "../api";
 
+import { MdEditor } from "md-editor-v3";
+import "md-editor-v3/lib/style.css";
+
 const route = useRoute();
 
 const page = ref(null);
@@ -25,7 +28,6 @@ onMounted(async () => {
     loading.value = false;
     nextTick(() => {
       if (titleRef.value) autoResize(titleRef.value);
-      blockRefs.value.forEach((el) => el && autoResize(el));
     });
   }
 });
@@ -45,38 +47,17 @@ function autoResize(el) {
 async function onBlockBlur(index) {
   const block = blocks.value[index];
   if (block.uid !== null) {
-    const nextBlock = blocks.value[index + 1];
-    // TODO: Only send next if next has actually changed
     // TODO: Only send content if content has actually changed
     const response = await blocksApi.update(block.uid, {
-      next: nextBlock?.uid ?? null,
       content: block.content,
     });
     blocks.value[index] = response.data;
   } else {
-    const nextBlock = blocks.value[index + 1];
     const response = await blocksApi.create({
       page: page.value.uid,
-      next: nextBlock?.uid ?? null,
       content: block.content,
     });
     blocks.value[index] = response.data;
-  }
-}
-
-async function onBlockKeydown(e, index) {
-  if (e.key === "Enter") {
-    e.preventDefault();
-    blocks.value.splice(index + 1, 0, { uid: null, content: "" });
-    nextTick(() => blockRefs.value[index + 1]?.focus());
-  } else if (e.key === "Backspace" && blocks.value[index].content === "") {
-    if (blocks.value.length === 1) return;
-
-    e.preventDefault();
-    const block = blocks.value[index];
-    blocks.value.splice(index, 1);
-    const response = await blocksApi.delete(block.uid);
-    nextTick(() => blockRefs.value[index - 1]?.focus());
   }
 }
 </script>
@@ -96,16 +77,14 @@ async function onBlockKeydown(e, index) {
     />
     <hr />
     <div class="blocks">
-      <textarea
+      <MdEditor
+        language="en-US"
         v-for="(block, index) in blocks"
         :key="block.uid"
         :ref="(el) => (blockRefs[index] = el)"
         v-model="block.content"
         class="block"
-        rows="1"
-        @keydown="onBlockKeydown($event, index)"
         @blur="onBlockBlur(index)"
-        @input="autoResize($event.target)"
       />
     </div>
   </div>
