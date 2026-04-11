@@ -4,7 +4,7 @@ from rest_framework import authentication
 class CustomSessionAuthentication(authentication.SessionAuthentication):
     """Custom Session Authentication Backend to support 401 status codes.
 
-    Referene: https://github.com/encode/django-rest-framework/issues/5968#issuecomment-399352828
+    Reference: https://github.com/encode/django-rest-framework/issues/5968#issuecomment-399352828
 
     This class is needed, because REST Framework's default SessionAuthentication does never return 401's,
     because they cannot fill the WWW-Authenticate header with a valid value in the 401 response. As a

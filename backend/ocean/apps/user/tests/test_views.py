@@ -44,7 +44,7 @@ class TestLoginView(APITestCase):
         self.assertDictEqual({"detail": "Invalid username or password."}, response.json())
 
     def test_login_fails_if_password_not_provided(self):
-        response = self.call_login_api({"password": self.password})
+        response = self.call_login_api({"username": self.user.username})
         self.assertEqual(status.HTTP_401_UNAUTHORIZED, response.status_code)
         self.assertDictEqual({"detail": "Invalid username or password."}, response.json())
 

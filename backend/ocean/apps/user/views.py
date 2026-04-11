@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 class LoginView(APIView):
     def post(self, request):
-        if not isinstance(self.request.user, AnonymousUser):
+        if self.request.user.is_authenticated:
             return Response(
                 {
                     "uid": self.request.user.uid,

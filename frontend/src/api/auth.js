@@ -12,5 +12,5 @@ export const authApi = {
 
   logout() {
     return apiClient.post("/auth/logout/");
-  }
+  },
 };
