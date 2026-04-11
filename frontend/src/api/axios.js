@@ -11,10 +11,10 @@ const apiClient = axios.create({
 // Request interceptor — attach JWT token to every request if it exists
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    config.withCredentials = true;
+    config.withXSRFToken = true;
+    config.xsrfCookieName = "csrftoken";
+    config.xsrfHeaderName = "X-CSRFToken";
     return config;
   },
   (error) => Promise.reject(error),
@@ -25,7 +25,9 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("access_token");
+      localStorage.removeItem("user_uid");
+      localStorage.removeItem("user_email");
+      localStorage.removeItem("user_username");
       window.location.href = "/login";
     }
     return Promise.reject(error);
