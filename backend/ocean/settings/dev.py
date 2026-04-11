@@ -139,7 +139,8 @@ DRF_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "ocean.apps.user.backend.CustomSessionAuthentication",
     ],
     "DATETIME_FORMAT": DRF_DATETIME_FORMAT,
 }
+CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]

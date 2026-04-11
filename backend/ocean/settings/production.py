@@ -6,8 +6,6 @@ import os
 
 from ocean.settings.dev import *
 
-
-
 SECRET_KEY = os.environ["OCEAN_SECRET_KEY"]
 
 DEBUG = False
