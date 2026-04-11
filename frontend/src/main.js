@@ -11,7 +11,7 @@ app.use(pinia);
 
 import { useAuthStore } from "./stores/auth";
 const authStore = useAuthStore(pinia);
-authStore.initialize();
+await authStore.initialize();
 
 app.use(router);
 
