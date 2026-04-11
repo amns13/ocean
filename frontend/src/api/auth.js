@@ -9,4 +9,8 @@ export const authApi = {
   login(creds) {
     return apiClient.post("/auth/login/", creds);
   },
+
+  logout() {
+    return apiClient.post("/auth/logout/");
+  }
 };
