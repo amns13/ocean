@@ -104,7 +104,6 @@ const handleSave = (index, value, html) => {
 }
 
 .page-editor {
-  max-width: 680px;
   margin: 0 auto;
   padding: 3rem 1rem;
 }
