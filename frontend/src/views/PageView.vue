@@ -60,6 +60,10 @@ async function onBlockBlur(index) {
     blocks.value[index] = response.data;
   }
 }
+
+const handleSave = (index, value, html) => {
+  onBlockBlur(index);
+};
 </script>
 
 <template>
@@ -85,6 +89,7 @@ async function onBlockBlur(index) {
         v-model="block.content"
         class="block"
         @blur="onBlockBlur(index)"
+        @onSave="(value, html) => handleSave(index, value, html)"
       />
     </div>
   </div>
