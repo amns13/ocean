@@ -35,7 +35,6 @@ function handleLogout() {
 }
 
 .navbar-content {
-  max-width: 720px;
   margin: 0 auto;
   height: 60px;
   display: flex;
