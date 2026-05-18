@@ -1,17 +1,41 @@
 <script setup>
-import { ref, onMounted, nextTick } from "vue";
-import { useRoute } from "vue-router";
-import { pagesApi, blocksApi } from "../api";
+// ---------------------------------------------------------------------------
+// PageView
+// ---------------------------------------------------------------------------
+// The page screen. Owns:
+//   - loading / error UI
+//   - title input (saved on blur, separate from the editor)
+//   - mounting <PageEditor> once the page + its block have loaded
+//
+// Why the editor lives in a child component:
+// Milkdown reads its initial document once, at setup time. Mounting
+// <PageEditor> only in the v-else branch (after loading finishes) means it
+// is created with the final markdown already known -- no flicker, no
+// re-mounting Milkdown on the same instance (which ProseMirror dislikes).
+// ---------------------------------------------------------------------------
 
-import { MdEditor } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
+import { ref, onMounted, nextTick, defineAsyncComponent } from "vue";
+import { useRoute } from "vue-router";
+import { pagesApi } from "../api";
+
+// Lazy: the editor (Crepe + CodeMirror grammars) is a large bundle and is
+// only ever rendered after the page loads (the v-else branch below), so it
+// is split into its own chunk fetched on first page open.
+const PageEditor = defineAsyncComponent(
+  () => import("../components/PageEditor.vue"),
+);
 
 const route = useRoute();
 
 const page = ref(null);
-const blocks = ref([]);
 const loading = ref(true);
 const error = ref(null);
+const titleRef = ref(null);
+
+// Passed straight to <PageEditor>. Set before loading flips to false, so the
+// editor mounts already knowing its content.
+const initialMarkdown = ref("");
+const initialBlockUid = ref(null);
 
 onMounted(async () => {
   try {
@@ -20,8 +44,13 @@ onMounted(async () => {
       pagesApi.getPageBlocks(route.params.uid),
     ]);
     page.value = pageRes.data;
-    blocks.value =
-      blocksRes.data.length > 0 ? blocksRes.data : [{ uid: null, content: "" }];
+
+    // A page has 0 or 1 block in Phase 1. Take the first if present.
+    const [block] = blocksRes.data;
+    if (block) {
+      initialMarkdown.value = block.content;
+      initialBlockUid.value = block.uid;
+    }
   } catch {
     error.value = "Failed to load page";
   } finally {
@@ -32,38 +61,15 @@ onMounted(async () => {
   }
 });
 
-async function saveTitle() {
-  await pagesApi.update(route.params.uid, { title: page.value.title });
-}
-
-const titleRef = ref(null);
-const blockRefs = ref([]);
-
 function autoResize(el) {
   el.style.height = "auto";
   el.style.height = el.scrollHeight + "px";
 }
 
-async function onBlockBlur(index) {
-  const block = blocks.value[index];
-  if (block.uid !== null) {
-    // TODO: Only send content if content has actually changed
-    const response = await blocksApi.update(block.uid, {
-      content: block.content,
-    });
-    blocks.value[index] = response.data;
-  } else {
-    const response = await blocksApi.create({
-      page: page.value.uid,
-      content: block.content,
-    });
-    blocks.value[index] = response.data;
-  }
+async function saveTitle() {
+  if (!page.value) return;
+  await pagesApi.update(route.params.uid, { title: page.value.title });
 }
-
-const handleSave = (index, value, html) => {
-  onBlockBlur(index);
-};
 </script>
 
 <template>
@@ -80,18 +86,12 @@ const handleSave = (index, value, html) => {
       @input="autoResize($event.target)"
     />
     <hr />
-    <div class="blocks">
-      <MdEditor
-        language="en-US"
-        v-for="(block, index) in blocks"
-        :key="block.uid"
-        :ref="(el) => (blockRefs[index] = el)"
-        v-model="block.content"
-        class="block"
-        @blur="onBlockBlur(index)"
-        @onSave="(value, html) => handleSave(index, value, html)"
-      />
-    </div>
+    <PageEditor
+      :page-uid="page.uid"
+      :initial-markdown="initialMarkdown"
+      :initial-block-uid="initialBlockUid"
+      class="page-editor-surface"
+    />
   </div>
 </template>
 
@@ -122,22 +122,9 @@ const handleSave = (index, value, html) => {
   overflow: hidden;
 }
 
-.blocks {
-  display: flex;
-  flex-direction: column;
-}
-
-.block {
-  width: 100%;
-  border: none;
-  outline: none;
-  background: transparent;
+.page-editor-surface {
   font-size: 1rem;
-  font-family: inherit;
   line-height: 1.6;
-  padding: 0.15rem 0;
   color: #1a1a1a;
-  resize: none;
-  overflow: hidden;
 }
 </style>
