@@ -1,7 +1,6 @@
 from typing import Any
 
 from django.db.models.aggregates import Max
-from django.utils import timezone
 from rest_framework import serializers
 
 from ocean.apps.page.models import Block, Page
