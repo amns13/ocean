@@ -4,8 +4,10 @@ Production settings for ocean project.
 
 import os
 
+from ocean.settings import PRODUCTION
 from ocean.settings.dev import *
 
+ENV = PRODUCTION
 SECRET_KEY = os.environ["OCEAN_SECRET_KEY"]
 
 DEBUG = False
@@ -35,3 +37,5 @@ SESSION_COOKIE_SECURE = True
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+API_DOMAIN_PREFIX = os.environ["API_DOMAIN_PREFIX"]

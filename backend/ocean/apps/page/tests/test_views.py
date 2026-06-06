@@ -1,6 +1,10 @@
-from uuid import uuid7
+import shutil
+import tempfile
+from pathlib import Path
+from uuid import uuid4
 
 from django.conf import settings
+from django.test import override_settings
 from django.urls import reverse
 from factory import Iterator
 from faker import Faker
@@ -186,7 +190,7 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
 
     def test_post_fails_if_invalid_page_uid_provided(self):
         """Test that post fails when page uid does not exist"""
-        while (invalid_uid := uuid7()) in {self.page_1.uid, self.page_2.uid}:
+        while (invalid_uid := uuid4()) in {self.page_1.uid, self.page_2.uid}:
             continue
         self.payload["page"] = invalid_uid
 
@@ -260,7 +264,7 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
 
     def test_delete_returns_404_for_nonexistent_block(self):
         """Test that DELETE returns 404 for a non-existent block"""
-        while (invalid_uid := uuid7()) in set(Block.objects.values_list("uid", flat=True)):
+        while (invalid_uid := uuid4()) in set(Block.objects.values_list("uid", flat=True)):
             continue
         response = self.call_delete_api(invalid_uid, self.user)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -271,3 +275,179 @@ class TestBlockCreateUpdateDestroyViewSet(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Block.objects.filter(uid=self.block_1_b.uid).exists())
+
+
+class PageImageUploadDownloadTest(APITestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.page_1, cls.page_2 = PageFactory.create_batch(2)
+        cls.user = UserFactory()
+        cls.image_path = settings.BASE_DIR / "ocean/apps/page/tests/fixtures/sample_image.png"
+
+    @staticmethod
+    def get_upload_url(uid) -> str:
+        return reverse("page:page-upload-image", kwargs={"uid": uid})
+
+    @staticmethod
+    def get_download_url(page_uid, image_uid) -> str:
+        return reverse("page:page-image-download", kwargs={"image_uid": image_uid, "page_uid": page_uid})
+
+    def call_upload_api(self, uid, data, user: User | None = None):
+        if user:
+            self.client.force_authenticate(user)
+        return self.client.post(self.get_upload_url(uid), data)
+
+    def call_download_api(self, page_uid, image_uid, user):
+        if user:
+            self.client.force_authenticate(user)
+        return self.client.get(self.get_download_url(page_uid, image_uid))
+
+    def test_page_image_upload_raises_401_on_unauthorized_request(self):
+        with open(self.image_path) as fp:
+            response = self.call_upload_api(str(self.page_1.uid), {"image": fp})
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_page_image_upload_raises_404_when_page_does_not_exist(self):
+        invalid_uid = uuid4()
+
+        with open(self.image_path) as fp:
+            response = self.call_upload_api(invalid_uid, {"image": fp}, self.user)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_page_image_upload_creates_new_image_on_new_request_with_unique_image(self):
+        with open(self.image_path) as fp:
+            with self.assertNumQueries(6):
+                # 1. Query to fetch page
+                # 2. Query to check for existing image
+                # 3. Query to create save point
+                # 4. Query to insert new image
+                # 5. Query to Release save point
+                # 6. Query to insert PageImage
+                response = self.call_upload_api(str(self.page_1.uid), {"image": fp}, self.user)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        page_image_mappings = self.page_1.images.all()
+        self.assertEqual(1, page_image_mappings.count())
+        page_image_mapping = page_image_mappings.first()
+        self.assertEqual(Path(self.image_path).name, page_image_mapping.name)
+        image = page_image_mapping.image
+        self.assertEqual(
+            reverse(
+                "page:page-image-download",
+                kwargs={"page_uid": str(self.page_1.uid), "image_uid": str(image.uid)},
+            ),
+            response.json()["image_url"],
+        )
+        with open(image.image.path) as fp:
+            contents = fp.read()
+
+        with open(self.image_path) as fp:
+            self.assertEqual(contents, fp.read())
+
+    def test_page_image_upload_skips_duplicate_images_but_creates_mapping_if_page_is_new(self):
+        with open(self.image_path) as fp:
+            response = self.call_upload_api(str(self.page_1.uid), {"image": fp}, self.user)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        page_image_mappings = self.page_1.images.all()
+        self.assertEqual(1, page_image_mappings.count())
+        page_image_mapping = page_image_mappings.first()
+        original_image = page_image_mapping.image
+
+        with open(self.image_path) as fsrc:
+            with tempfile.NamedTemporaryFile(prefix="another_image", delete_on_close=False) as fdst:
+                shutil.copyfileobj(fsrc, fdst)
+                dest_file = fdst.name
+
+                with open(dest_file) as fp:
+                    with self.assertNumQueries(6):
+                        # 1. Query to fetch page
+                        # 2. Query to check for existing image
+                        # 3. Query to check for existing PageImage mapping
+                        # 4. Create savepoint
+                        # 5. Query to insert PageImage
+                        # 6. Release savepoint
+                        response = self.call_upload_api(str(self.page_2.uid), {"image": fp}, self.user)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        new_page_image_mappings = self.page_2.images.all()
+        self.assertEqual(1, new_page_image_mappings.count())
+        new_page_image_mapping = new_page_image_mappings.first()
+        self.assertEqual(Path(dest_file).name, new_page_image_mapping.name)
+        self.assertEqual(original_image.id, new_page_image_mapping.image.id)
+        self.assertEqual(
+            reverse(
+                "page:page-image-download",
+                kwargs={"page_uid": str(self.page_2.uid), "image_uid": str(original_image.uid)},
+            ),
+            response.json()["image_url"],
+        )
+
+    def test_page_image_upload_skips_both_image_and_mapping_creation_if_existing_image_is_added_to_same_page(self):
+        with open(self.image_path) as fp:
+            response = self.call_upload_api(str(self.page_1.uid), {"image": fp}, self.user)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        page_image_mappings = self.page_1.images.all()
+        self.assertEqual(1, page_image_mappings.count())
+        page_image_mapping = page_image_mappings.first()
+        original_image = page_image_mapping.image
+
+        with open(self.image_path) as fsrc:
+            with tempfile.NamedTemporaryFile(prefix="another_image", delete_on_close=False) as fdst:
+                shutil.copyfileobj(fsrc, fdst)
+                dest_file = fdst.name
+
+                with open(dest_file) as fp:
+                    with self.assertNumQueries(3):
+                        # 1. Query to fetch page
+                        # 2. Query to check for existing image
+                        # 3. Query to check for existing PageImage mapping
+                        response = self.call_upload_api(str(self.page_1.uid), {"image": fp}, self.user)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        new_page_image_mappings = self.page_1.images.all()
+        self.assertEqual(1, new_page_image_mappings.count())
+        self.assertEqual(
+            reverse(
+                "page:page-image-download",
+                kwargs={"page_uid": str(self.page_1.uid), "image_uid": str(original_image.uid)},
+            ),
+            response.json()["image_url"],
+        )
+
+    def test_page_image_download_raises_401_for_unauthenticated_request(self):
+        # Upload the image first
+        with open(self.image_path) as fp:
+            response = self.call_upload_api(str(self.page_1.uid), {"image": fp}, self.user)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        image_url = response.json()["image_url"]
+
+        # Now, download.
+        self.client.logout()
+        response = self.client.get(image_url)
+        self.assertEqual(status.HTTP_401_UNAUTHORIZED, response.status_code)
+
+    def test_page_image_download_raises_404_if_page_does_not_exist(self):
+        response = self.call_download_api(str(uuid4()), str(uuid4()), self.user)
+        self.assertEqual(status.HTTP_404_NOT_FOUND, response.status_code)
+
+    def test_page_image_download_raises_404_if_image_does_not_exist(self):
+        response = self.call_download_api(str(self.page_1.uid), str(uuid4()), self.user)
+        self.assertEqual(status.HTTP_404_NOT_FOUND, response.status_code)
+
+    def test_page_image_download_returns_image_for_valid_request(self):
+        # Upload the image first
+        with open(self.image_path) as fp:
+            response = self.call_upload_api(str(self.page_1.uid), {"image": fp}, self.user)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        image_url = response.json()["image_url"]
+
+        # Now, download.
+        self.client.force_authenticate(self.user)
+        response = self.client.get(image_url)
+        self.assertEqual(status.HTTP_200_OK, response.status_code)
+        self.assertEqual(Path(self.image_path).name, response.filename)

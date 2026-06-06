@@ -12,9 +12,13 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 
+from ocean.settings import DEVELOPMENT
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+
+ENV = DEVELOPMENT
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -144,3 +148,11 @@ REST_FRAMEWORK = {
     "DATETIME_FORMAT": DRF_DATETIME_FORMAT,
 }
 CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
+
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024  # 2 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024  # 2 MB
+
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
+
+API_DOMAIN_PREFIX = "http://localhost:8000"
