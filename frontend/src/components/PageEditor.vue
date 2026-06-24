@@ -18,7 +18,7 @@ import { languages } from "@codemirror/language-data";
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/nord.css";
 
-import { blocksApi } from "../api";
+import { blocksApi, pagesApi } from "../api";
 
 const props = defineProps({
   pageUid: { type: String, required: true },
@@ -52,7 +52,6 @@ onMounted(async () => {
     // don't want yet: ImageBlock (no upload backend) and Latex ( togglable
     // in future).
     features: {
-      [CrepeFeature.ImageBlock]: false,
       [CrepeFeature.Latex]: false,
     },
     featureConfigs: {
@@ -62,6 +61,12 @@ onMounted(async () => {
       // loaded on demand the first time a code block uses that language --
       // nothing here is added to the editor's main bundle.
       [CrepeFeature.CodeMirror]: { languages },
+      [CrepeFeature.ImageBlock]: {
+        onUpload: async (file) => {
+          let imageUrl = await uploadImage(file);
+          return imageUrl;
+        },
+      },
     },
   });
   await crepe.create();
@@ -98,6 +103,15 @@ async function save() {
     // Swallowed so a failed save never breaks a blur/navigation. The
     // unchanged lastSavedMarkdown means the next trigger will retry.
     console.error("Failed to save page content");
+  }
+}
+
+async function uploadImage(image) {
+  try {
+    const result = await pagesApi.uploadImage(props.pageUid, image);
+    return result.data.image_url;
+  } catch {
+    console.error("Failed to uploadImage");
   }
 }
 

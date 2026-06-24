@@ -24,6 +24,13 @@ export const pagesApi = {
   getPageBlocks(uid) {
     return apiClient.get(`/pages/${uid}/blocks/`);
   },
+  uploadImage(uid, image) {
+    const formData = new FormData();
+    formData.append("image", image);
+    return apiClient.post(`/pages/${uid}/upload-image/`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 };
 
 export const blocksApi = {

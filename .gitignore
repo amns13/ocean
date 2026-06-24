@@ -216,3 +216,5 @@ frontend/.vite/
 frontend/node_modules/
 
 CLAUDE.md
+
+backend/media
