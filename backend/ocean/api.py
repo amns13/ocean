@@ -6,5 +6,5 @@ from ocean.utils.renderers import CustomJsonRender
 
 api = NinjaAPI(renderer=CustomJsonRender(), urls_namespace="api-1")
 
-api.add_router("/pages/", page_router)
+api.add_router("", page_router)
 api.add_router("/auth/", user_router)

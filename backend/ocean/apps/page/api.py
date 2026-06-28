@@ -26,24 +26,29 @@ from ocean.apps.page.schemas import (
 router = Router(auth=SessionAuth())
 logger = logging.getLogger(__name__)
 
+PAGE_LIST_URL = "/pages/"
+PAGE_DETAILS_URL = "/pages/{uuid:uid}/"
+BLOCK_LIST_URL = "/blocks/"
+BLOCK_DETAILS_URL = "/blocks/{uuid:uid}/"
 
-@router.get("/", response=list[PageSchema])
+
+@router.get(PAGE_LIST_URL, response=list[PageSchema])
 def list_pages(request: HttpRequest):
     queryset = Page.objects.order_by("-id")
     return queryset
 
 
-@router.post("/", response={201: PageSchema})
+@router.post(PAGE_LIST_URL, response={201: PageSchema})
 def create_page(request: HttpRequest, data: PageSchemaIn):
     return Page.objects.create(**data.dict(), creator=request.user)
 
 
-@router.get("/{uuid:uid}/", response=PageSchema)
+@router.get(PAGE_DETAILS_URL, response=PageSchema)
 def retreive_page(request: HttpRequest, uid: UUID):
     return get_object_or_404(Page, uid=uid)
 
 
-@router.put("/{uuid:uid}/", response=PageSchema)
+@router.put(PAGE_DETAILS_URL, response=PageSchema)
 def update_page(request: HttpRequest, uid: UUID, data: PageSchemaIn):
     page = get_object_or_404(Page, uid=uid)
     update_fields = []
@@ -55,20 +60,20 @@ def update_page(request: HttpRequest, uid: UUID, data: PageSchemaIn):
     return page
 
 
-@router.delete("/{uuid:uid}/", response={204: None})
+@router.delete(PAGE_DETAILS_URL, response={204: None})
 def delete_page(request: HttpRequest, uid: UUID):
     page = get_object_or_404(Page, uid=uid)
     page.delete()
     return Status(204, None)
 
 
-@router.get("/{uuid:uid}/blocks/", response=list[BlockSchemaOut])
+@router.get(PAGE_DETAILS_URL + "blocks/", response=list[BlockSchemaOut])
 def page_blocks(request: HttpRequest, uid: UUID):
     page = get_object_or_404(Page.objects.only("id", "uid"), uid=uid)
     return page.blocks.order_by("index").only("uid", "content", "page_id")
 
 
-@router.post("/blocks/", response={201: BlockCreateSchemaOut})
+@router.post(BLOCK_LIST_URL, response={201: BlockCreateSchemaOut})
 def create_block(request: HttpRequest, data: BlockCreateSchemaIn):
     try:
         page = Page.objects.annotate(last_block_index=Max("blocks__index")).only("uid", "id").get(uid=data.page)
@@ -84,7 +89,7 @@ def create_block(request: HttpRequest, data: BlockCreateSchemaIn):
     return block
 
 
-@router.patch("/blocks/{uuid:uid}/", response=BlockCreateSchemaOut)
+@router.patch(BLOCK_DETAILS_URL, response=BlockCreateSchemaOut)
 def update_block(request: HttpRequest, uid: UUID, data: BlockSchemaIn):
     block: Block = get_object_or_404(Block.objects.select_related("page").only("id", "uid", "page__uid"), uid=uid)
     update_fields = []
@@ -97,14 +102,14 @@ def update_block(request: HttpRequest, uid: UUID, data: BlockSchemaIn):
     return block
 
 
-@router.delete("/blocks/{uuid:uid}/", response={204: None})
+@router.delete(BLOCK_DETAILS_URL, response={204: None})
 def delete_block(request: HttpRequest, uid: UUID):
     block: Block = get_object_or_404(Block, uid=uid)
     block.delete()
     return Status(204, None)
 
 
-@router.post("/{uuid:uid}/upload-image/", response=UploadImageSchemaOut)
+@router.post(PAGE_DETAILS_URL + "upload-image/", response=UploadImageSchemaOut)
 def upload_image(request: HttpRequest, uid: UUID, image: File[UploadedFile]):
     page = get_object_or_404(Page.objects.only("id", "uid"), uid=uid)
     content_hash = hashlib.file_digest(image, "sha256").hexdigest()
@@ -125,7 +130,7 @@ def upload_image(request: HttpRequest, uid: UUID, image: File[UploadedFile]):
     }
 
 
-@router.get("/{uuid:page_uid}/download-image/{uuid:image_uid}/", url_name="page-image-download")
+@router.get("/pages/{uuid:page_uid}/download-image/{uuid:image_uid}/", url_name="page-image-download")
 def download_image(request: HttpRequest, page_uid: UUID, image_uid: UUID):
     page_image = get_object_or_404(PageImage.objects.select_related("image"), page__uid=page_uid, image__uid=image_uid)
     return FileResponse(page_image.image.image.file.open("rb"), filename=page_image.name, as_attachment=False)

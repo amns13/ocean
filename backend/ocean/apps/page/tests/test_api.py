@@ -228,16 +228,16 @@ class TestBlockCreateUpdateDeleteApis(ApiTestCase):
         }
 
     def call_post_api(self, data, user=None):
-        return self.call_api("post", "/pages/blocks/", user=user, json=data)
+        return self.call_api("post", "/blocks/", user=user, json=data)
 
     def call_patch_api(self, uid, data, user=None):
-        return self.call_api("patch", f"/pages/blocks/{uid}/", user=user, json=data)
+        return self.call_api("patch", f"/blocks/{uid}/", user=user, json=data)
 
     def call_put_api(self, uid, data, user=None):
-        return self.call_api("put", f"/pages/blocks/{uid}/", user=user, json=data)
+        return self.call_api("put", f"/blocks/{uid}/", user=user, json=data)
 
     def call_delete_api(self, uid, user=None):
-        return self.call_api("delete", f"/pages/blocks/{uid}/", user=user)
+        return self.call_api("delete", f"/blocks/{uid}/", user=user)
 
     @staticmethod
     def create_block_response(block: Block) -> dict:
