@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Third party apps
-    "rest_framework",
     "corsheaders",
     # My apps
     "ocean.apps.common",
@@ -141,12 +140,6 @@ STATIC_URL = "static/"
 
 DRF_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
-REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "ocean.apps.user.backend.CustomSessionAuthentication",
-    ],
-    "DATETIME_FORMAT": DRF_DATETIME_FORMAT,
-}
 CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024  # 2 MB
