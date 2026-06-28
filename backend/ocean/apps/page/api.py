@@ -43,6 +43,25 @@ def retreive_page(request: HttpRequest, uid: UUID):
     return get_object_or_404(Page, uid=uid)
 
 
+@router.put("/{uuid:uid}/", response=PageSchema)
+def update_page(request: HttpRequest, uid: UUID, data: PageSchemaIn):
+    page = get_object_or_404(Page, uid=uid)
+    update_fields = []
+    for attr, value in data.dict().items():
+        setattr(page, attr, value)
+        update_fields.append(attr)
+    update_fields.append("updated_at")
+    page.save(update_fields=list(data.dict().keys()) + ["updated_at"])
+    return page
+
+
+@router.delete("/{uuid:uid}/", response={204: None})
+def delete_page(request: HttpRequest, uid: UUID):
+    page = get_object_or_404(Page, uid=uid)
+    page.delete()
+    return Status(204, None)
+
+
 @router.get("/{uuid:uid}/blocks/", response=list[BlockSchemaOut])
 def page_blocks(request: HttpRequest, uid: UUID):
     page = get_object_or_404(Page.objects.only("id", "uid"), uid=uid)
@@ -68,10 +87,13 @@ def create_block(request: HttpRequest, data: BlockCreateSchemaIn):
 @router.patch("/blocks/{uuid:uid}/", response=BlockCreateSchemaOut)
 def update_block(request: HttpRequest, uid: UUID, data: BlockSchemaIn):
     block: Block = get_object_or_404(Block.objects.select_related("page").only("id", "uid", "page__uid"), uid=uid)
+    update_fields = []
     for attr, value in data.dict().items():
         setattr(block, attr, value)
+        update_fields.append(attr)
 
-    block.save(update_fields=list(data.dict().keys()))
+    update_fields.append("updated_at")
+    block.save(update_fields=list(data.dict().keys()) + ["updated_at"])
     return block
 
 

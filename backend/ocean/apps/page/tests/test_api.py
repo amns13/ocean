@@ -19,27 +19,14 @@ faker = Faker()
 User = get_user_model()
 
 
-class TestPageCreateListUpdateBlocksApis(ApiTestCase):
+class PageApisTestMixin:
     @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
+    def set_up_test_data(cls):
         cls.user_1, cls.user_2 = UserFactory.create_batch(2)
         cls.page_1, cls.page_2 = PageFactory.create_batch(2, creator=Iterator([cls.user_1, cls.user_2]))
         cls.block_1_a = BlockFactory(page=cls.page_1, index=1)
         cls.block_1_b = BlockFactory(page=cls.page_1, index=2)
         cls.block_1_c = BlockFactory(page=cls.page_1, index=3)
-
-    def call_list_api(self, user=None):
-        return self.call_api("get", "/pages/", user=user)
-
-    def call_post_api(self, data, user=None):
-        return self.call_api("post", "/pages/", user=user, json=data)
-
-    def call_retreive_api(self, uid, user=None):
-        return self.call_api("get", f"/pages/{uid}/", user=user)
-
-    def call_blocks_api(self, uid, user=None):
-        return self.call_api("get", f"/pages/{uid}/blocks/", user=user)
 
     @staticmethod
     def create_page_response(page: Page) -> dict:
@@ -54,6 +41,18 @@ class TestPageCreateListUpdateBlocksApis(ApiTestCase):
             "updated_at": page.updated_at.strftime(settings.DRF_DATETIME_FORMAT),
         }
 
+
+class PageApisTestBase(PageApisTestMixin, ApiTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.set_up_test_data()
+
+
+class TestPageListApi(PageApisTestBase):
+    def call_list_api(self, user=None):
+        return self.call_api("get", "/pages/", user=user)
+
     def test_list_fails_for_unauthenticated(self):
         response = self.call_list_api()
         self.assertEqual(response.status_code, 401)
@@ -64,6 +63,11 @@ class TestPageCreateListUpdateBlocksApis(ApiTestCase):
             response = self.call_list_api(self.user_1)
         self.assertEqual(response.status_code, 200)
         self.assertListEqual(response.json(), [self.create_page_response(p) for p in [self.page_2, self.page_1]])
+
+
+class TestPageCreateApi(PageApisTestBase):
+    def call_post_api(self, data, user=None):
+        return self.call_api("post", "/pages/", user=user, json=data)
 
     def test_post_fails_for_unauthenticated_request(self):
         data = {"title": faker.sentence()}
@@ -76,6 +80,11 @@ class TestPageCreateListUpdateBlocksApis(ApiTestCase):
         self.assertEqual(response.status_code, 201)
         created_page = Page.objects.filter(creator=self.user_1).exclude(id=self.page_1.id).get()
         self.assertDictEqual(response.json(), self.create_page_response(created_page))
+
+
+class TestPageRetreiveApi(PageApisTestBase):
+    def call_retreive_api(self, uid, user=None):
+        return self.call_api("get", f"/pages/{uid}/", user=user)
 
     def test_retreive_fails_for_unauthenticated_request(self):
         response = self.call_retreive_api(self.page_1.uid)
@@ -92,12 +101,72 @@ class TestPageCreateListUpdateBlocksApis(ApiTestCase):
         self.assertEqual(200, response.status_code)
         self.assertEqual(self.create_page_response(self.page_1), response.json())
 
+
+class TestPageUpdateApi(PageApisTestBase):
+    def call_update_api(self, uid, data, user=None):
+        return self.call_api("put", f"/pages/{uid}/", user=user, json=data)
+
+    def test_update_fails_for_unauthenticated_request(self):
+        response = self.call_update_api(faker.uuid4(), {"title": faker.sentence()})
+        self.assertEqual(401, response.status_code)
+
+    def test_update_fails_for_invalid_page(self):
+        response = self.call_update_api(faker.uuid4(), {"title": faker.sentence()}, self.user_1)
+        self.assertEqual(404, response.status_code)
+
+    def test_update_request_updates_page_title(self):
+        page = PageFactory()
+        new_title = faker.sentence()
+        old_updated_at = page.updated_at
+        response = self.call_update_api(page.uid, {"title": new_title}, self.user_1)
+        self.assertEqual(200, response.status_code)
+        page.refresh_from_db()
+        self.assertDictEqual(self.create_page_response(page), response.json())
+        self.assertEqual(page.title, new_title)
+        self.assertGreater(page.updated_at, old_updated_at)
+
+    def test_update_succeeds_if_title_is_empty(self):
+        page = PageFactory()
+        response = self.call_update_api(page.uid, {"title": ""}, self.user_1)
+        self.assertEqual(200, response.status_code)
+        page.refresh_from_db()
+        self.assertEqual("", page.title)
+
+
+class TestPageDeleteApi(ApiTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = UserFactory()
+
+    def call_delete_api(self, uid, user=None):
+        return self.call_api("delete", f"/pages/{uid}/", user=user)
+
+    def test_delete_raises_401_for_unauthenticated_request(self):
+        response = self.call_delete_api(faker.uuid4())
+        self.assertEqual(401, response.status_code)
+
+    def test_delete_raises_404_for_invalid_page(self):
+        response = self.call_delete_api(faker.uuid4(), self.user)
+        self.assertEqual(404, response.status_code)
+
+    def test_delete_request_deletes_page(self):
+        page = PageFactory()
+        response = self.call_delete_api(page.uid, self.user)
+        self.assertEqual(204, response.status_code)
+        self.assertFalse(Page.objects.filter(id=page.id).exists())
+
+
+class TestPageBlocksApi(PageApisTestBase):
+    def call_blocks_api(self, uid, user=None):
+        return self.call_api("get", f"/pages/{uid}/blocks/", user=user)
+
     def test_blocks_returns_401_for_unauthenticated_request(self):
         response = self.call_blocks_api(self.page_1.uid)
         self.assertEqual(401, response.status_code)
 
     def test_blocks_returns_404_for_invalid_uid(self):
-        response = self.call_retreive_api(faker.uuid4(), self.user_1)
+        response = self.call_blocks_api(faker.uuid4(), self.user_1)
         self.assertEqual(404, response.status_code)
 
     def test_blocks_returns_blocks_ordered_by_index(self):
