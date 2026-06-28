@@ -38,18 +38,18 @@ def create_page(request: HttpRequest, data: PageSchemaIn):
     return Page.objects.create(**data.dict(), creator=request.user)
 
 
-@router.get("/{uuid:uid}", response=PageSchema)
+@router.get("/{uuid:uid}/", response=PageSchema)
 def retreive_page(request: HttpRequest, uid: UUID):
     return get_object_or_404(Page, uid=uid)
 
 
-@router.get("/{uuid:uid}/blocks", response=list[BlockSchemaOut])
+@router.get("/{uuid:uid}/blocks/", response=list[BlockSchemaOut])
 def page_blocks(request: HttpRequest, uid: UUID):
     page = get_object_or_404(Page.objects.only("id", "uid"), uid=uid)
     return page.blocks.order_by("index").only("uid", "content", "page_id")
 
 
-@router.post("/blocks", response={201: BlockCreateSchemaOut})
+@router.post("/blocks/", response={201: BlockCreateSchemaOut})
 def create_block(request: HttpRequest, data: BlockCreateSchemaIn):
     try:
         page = Page.objects.annotate(last_block_index=Max("blocks__index")).only("uid", "id").get(uid=data.page)
@@ -65,7 +65,7 @@ def create_block(request: HttpRequest, data: BlockCreateSchemaIn):
     return block
 
 
-@router.patch("/blocks/{uuid:uid}", response=BlockCreateSchemaOut)
+@router.patch("/blocks/{uuid:uid}/", response=BlockCreateSchemaOut)
 def update_block(request: HttpRequest, uid: UUID, data: BlockSchemaIn):
     block: Block = get_object_or_404(Block.objects.select_related("page").only("id", "uid", "page__uid"), uid=uid)
     for attr, value in data.dict().items():
@@ -75,14 +75,14 @@ def update_block(request: HttpRequest, uid: UUID, data: BlockSchemaIn):
     return block
 
 
-@router.delete("/blocks/{uuid:uid}", response={204: None})
+@router.delete("/blocks/{uuid:uid}/", response={204: None})
 def delete_block(request: HttpRequest, uid: UUID):
     block: Block = get_object_or_404(Block, uid=uid)
     block.delete()
     return Status(204, None)
 
 
-@router.post("/{uuid:uid}/upload-image", response=UploadImageSchemaOut)
+@router.post("/{uuid:uid}/upload-image/", response=UploadImageSchemaOut)
 def upload_image(request: HttpRequest, uid: UUID, image: File[UploadedFile]):
     page = get_object_or_404(Page.objects.only("id", "uid"), uid=uid)
     content_hash = hashlib.file_digest(image, "sha256").hexdigest()
@@ -99,11 +99,11 @@ def upload_image(request: HttpRequest, uid: UUID, image: File[UploadedFile]):
         PageImage.objects.get_or_create(image=_image, page=page, defaults={"user": request.user, "name": image.name})
 
     return {
-        "image_url": f"{settings.API_DOMAIN_PREFIX}{reverse('api-1.0.0:page-image-download', kwargs={'page_uid': page.uid, 'image_uid': _image.uid})}"
+        "image_url": f"{settings.API_DOMAIN_PREFIX}{reverse('api-1:page-image-download', kwargs={'page_uid': page.uid, 'image_uid': _image.uid})}"
     }
 
 
-@router.get("/{uuid:page_uid}/download-image/{uuid:image_uid}", url_name="page-image-download")
+@router.get("/{uuid:page_uid}/download-image/{uuid:image_uid}/", url_name="page-image-download")
 def download_image(request: HttpRequest, page_uid: UUID, image_uid: UUID):
     page_image = get_object_or_404(PageImage.objects.select_related("image"), page__uid=page_uid, image__uid=image_uid)
     return FileResponse(page_image.image.image.file.open("rb"), filename=page_image.name, as_attachment=False)
