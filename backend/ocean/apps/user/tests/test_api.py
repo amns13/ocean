@@ -46,7 +46,7 @@ class TestLoginUserApi(TestCase):
         response = self.call_login_api({"username": self.user.username})
         self.assertEqual(422, response.status_code, response.json())
 
-    @mock.patch("ocean.apps.user.views.authenticate")
+    @mock.patch("ocean.apps.user.api.authenticate")
     def test_login_returns_details_if_user_already_authenticated(self, mock_authenticate):
         self.client.force_login(self.user)
         response = self.call_login_api({"username": self.user.username, "password": self.password})
